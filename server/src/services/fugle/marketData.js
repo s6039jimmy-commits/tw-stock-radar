@@ -16,11 +16,24 @@ try {
 
 // 取得即時報價
 export const getQuote = async (symbol, retries = 3) => {
-  if (!client) return { symbol, close: 100, open: 99, high: 101, low: 98, change: 1, changePercent: 1 };
+  if (!client) return { symbol, closePrice: 100, openPrice: 99, highPrice: 101, lowPrice: 98, change: 1, changePercent: 1, lastPrice: 100 };
   try {
     const stock = client.stock;
-    const data = await stock.intraday.quote({ symbol });
-    return data;
+    const res = await stock.intraday.quote({ symbol });
+    const data = res?.data || res || {};
+    
+    // Ensure all standard fields are present for scanners
+    return {
+      symbol,
+      closePrice: data.closePrice || data.lastPrice || data.close || 0,
+      lastPrice: data.lastPrice || data.closePrice || data.close || 0,
+      openPrice: data.openPrice || data.open || 0,
+      highPrice: data.highPrice || data.high || 0,
+      lowPrice: data.lowPrice || data.low || 0,
+      change: data.change || 0,
+      changePercent: data.changePercent || 0,
+      total: data.total || {}
+    };
   } catch (error) {
     if (retries > 0) {
       await sleep(1000);
