@@ -11,8 +11,8 @@ export default function SettingsPage() {
     GEMINI_API_KEY: '',
     TELEGRAM_BOT_TOKEN: '',
     TELEGRAM_CHAT_ID: '',
-    STOP_LOSS_PCT: '-7.0',
-    TAKE_PROFIT_PCT: '15.0',
+    AI_DANGER_LEVEL_THRESHOLD: '4',
+    PRE_MARKET_SCAN_TIME: '08:45',
     VOLUME_RATIO_THRESHOLD: '2.5'
   });
 
@@ -207,29 +207,33 @@ export default function SettingsPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="flex flex-col gap-2">
-            <label className="text-sm text-secondary font-medium">嚴格停損門檻 (%)</label>
-            <input 
-              type="number" 
-              name="STOP_LOSS_PCT"
+            <label className="text-sm text-secondary font-medium">AI 突發利空危險門檻</label>
+            <select 
+              name="AI_DANGER_LEVEL_THRESHOLD"
               className="input font-mono" 
-              value={form.STOP_LOSS_PCT || '-7.0'} 
+              value={form.AI_DANGER_LEVEL_THRESHOLD || '4'} 
               onChange={handleChange}
-              step="0.5"
-            />
-            <p className="text-xs text-muted">價格跌幅達此設定自動推播警報 (預設 -7%)</p>
+            >
+              <option value="3">3 (中度危險)</option>
+              <option value="4">4 (高度危險 - 預設)</option>
+              <option value="5">5 (極度危險)</option>
+            </select>
+            <p className="text-xs text-muted">危險等級達此設定即觸發市價賣出警報</p>
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm text-secondary font-medium">預設停利門檻 (%)</label>
-            <input 
-              type="number" 
-              name="TAKE_PROFIT_PCT"
+            <label className="text-sm text-secondary font-medium">盤前新聞掃描時間</label>
+            <select 
+              name="PRE_MARKET_SCAN_TIME"
               className="input font-mono" 
-              value={form.TAKE_PROFIT_PCT || '15.0'} 
+              value={form.PRE_MARKET_SCAN_TIME || '08:45'} 
               onChange={handleChange}
-              step="0.5"
-            />
-            <p className="text-xs text-muted">價格漲幅達此設定自動推播警報 (預設 +15%)</p>
+            >
+              <option value="08:30">08:30 (試撮開始)</option>
+              <option value="08:45">08:45 (試撮後段 - 預設)</option>
+              <option value="08:55">08:55 (開盤前 5 分鐘)</option>
+            </select>
+            <p className="text-xs text-muted">系統將於此時間抓取過夜新聞並發送預警</p>
           </div>
 
           <div className="flex flex-col gap-2">

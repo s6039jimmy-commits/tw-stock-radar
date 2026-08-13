@@ -2,9 +2,10 @@ import { checkStopLoss, checkTakeProfit, checkMA5Break } from './priceMonitor.js
 import { scanPositionNews } from './newsMonitor.js';
 import { analyzeExit } from '../ai/geminiClient.js';
 import { getQuote } from '../fugle/marketData.js';
-import { addExitAlert } from '../../db/database.js';
+import { addExitAlert, getSetting } from '../../db/database.js';
 import { sendExitAlert } from '../notify/telegram.js';
 import { logger } from '../../utils/logger.js';
+import { AI_DANGER_LEVEL_THRESHOLD } from '../../config/index.js';
 
 /**
  * 評估單一持倉的出場條件
@@ -31,10 +32,11 @@ export const evaluatePosition = async (position) => {
         headlines.map(h => ({ title: h }))
       );
 
-      if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= 4) {
+      const dangerLevelThreshold = parseInt(getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);
+      if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= dangerLevelThreshold) {
         return processExitAlert(position, 'NEWS_EXIT', {
           price: currentPrice,
-          reason: `🚨 重大突發利空！請立即掛「市價單」賣出！ (危險等級: ${aiResult.danger_level}/5)`,
+          reason: `🚨 重大突發利空！請立即掛「市價單」賣出！ (危險等級: ${aiResult.danger_level}/${dangerLevelThreshold})`,
           ai_analysis: aiResult.reasoning
         });
       }
@@ -84,10 +86,11 @@ export const evaluatePositionNewsOnly = async (position) => {
         headlines.map(h => ({ title: h }))
       );
 
-      if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= 4) {
+      const dangerLevelThreshold = parseInt(getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);
+      if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= dangerLevelThreshold) {
         return processExitAlert(position, 'PRE_MARKET_EXIT', {
           price: position.current_price || position.entry_price, // 盤前可能無最新報價，用現有價
-          reason: `🚨 開盤前極度危險！請立即掛「市價單」賣出！ (危險等級: ${aiResult.danger_level}/5)`,
+          reason: `🚨 開盤前極度危險！請立即掛「市價單」賣出！ (危險等級: ${aiResult.danger_level}/${dangerLevelThreshold})`,
           ai_analysis: aiResult.reasoning
         });
       }

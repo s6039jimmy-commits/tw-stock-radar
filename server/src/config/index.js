@@ -12,8 +12,8 @@ export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 
 // 交易參數 (預設值)
-export const STOP_LOSS_PCT = parseFloat(process.env.STOP_LOSS_PCT || '-7.0');
-export const TAKE_PROFIT_PCT = parseFloat(process.env.TAKE_PROFIT_PCT || '15.0');
+export const AI_DANGER_LEVEL_THRESHOLD = parseInt(process.env.AI_DANGER_LEVEL_THRESHOLD || '4');
+export const PRE_MARKET_SCAN_TIME = process.env.PRE_MARKET_SCAN_TIME || '08:45';
 export const MA5_EXIT = process.env.MA5_EXIT === 'true' || true;
 export const VOLUME_RATIO_THRESHOLD = parseFloat(process.env.VOLUME_RATIO_THRESHOLD || '2.5');
 export const BLUE_CHIP_TOP_N = parseInt(process.env.BLUE_CHIP_TOP_N || '50');
