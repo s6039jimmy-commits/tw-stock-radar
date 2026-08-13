@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-export function useWebSocket(url = 'ws://localhost:3001') {
+export function useWebSocket(url = import.meta.env.VITE_WS_URL || 'ws://localhost:3001') {
   const [lastMessage, setLastMessage] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef(null);
