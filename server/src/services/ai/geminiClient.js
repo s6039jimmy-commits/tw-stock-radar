@@ -7,14 +7,13 @@ let model = null;
 if (GEMINI_API_KEY) {
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-  // 進場分析 Schema（reasoning 放在 sentiment 前面，觸發 Chain-of-Thought）
+  // 進場分析 Schema（依照短線飆股專用格式）
   const entrySchema = {
     type: SchemaType.OBJECT,
-    description: '台股進場信號分析報告',
+    description: '短線飆股進場信號分析報告',
     properties: {
       symbol: { type: SchemaType.STRING, description: '股票代號' },
       company_name: { type: SchemaType.STRING, description: '公司名稱' },
-      reasoning: { type: SchemaType.STRING, description: '詳細分析推理過程，包含利多利空因素' },
       sentiment: {
         type: SchemaType.STRING,
         description: '整體情緒判定',
@@ -24,27 +23,10 @@ if (GEMINI_API_KEY) {
         type: SchemaType.INTEGER,
         description: '信心星等評分，1-5 顆星，5 為最高'
       },
-      confidence_score: {
-        type: SchemaType.NUMBER,
-        description: '信心分數 0.0 到 1.0'
-      },
-      key_factors: {
-        type: SchemaType.ARRAY,
-        description: '關鍵影響因素列表',
-        items: { type: SchemaType.STRING }
-      },
-      recommended_action: {
-        type: SchemaType.STRING,
-        description: '建議動作',
-        enum: ['STRONG_BUY', 'BUY', 'HOLD', 'SELL', 'STRONG_SELL']
-      },
-      risk_factors: {
-        type: SchemaType.ARRAY,
-        description: '風險因素列表',
-        items: { type: SchemaType.STRING }
-      }
+      catalyst: { type: SchemaType.STRING, description: '一句話總結引爆點，例如：切入矽光子領域帶來極大想像空間' },
+      action_plan: { type: SchemaType.STRING, description: '對明天的具體操作建議，例如：若明日帶量突破壓力區即可進場做多' }
     },
-    required: ['symbol', 'company_name', 'reasoning', 'sentiment', 'confidence_stars', 'confidence_score', 'key_factors', 'recommended_action', 'risk_factors']
+    required: ['symbol', 'sentiment', 'confidence_stars', 'catalyst', 'action_plan']
   };
 
   // 出場分析 Schema
@@ -77,21 +59,18 @@ if (GEMINI_API_KEY) {
   model = {
     entry: genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      systemInstruction: `你是一位精通台灣股市的頂尖量化策略分析師，擁有超過 20 年的台股實戰經驗。
-你的任務是客觀、嚴謹地分析個股的最新新聞與價量數據，判斷該股票的進場時機。
+      systemInstruction: `你是一位台股頂尖的「短線動能交易員 (Momentum Trader)」。
+你的目標是尋找「明天開盤極可能強勢表態（大漲、鎖漲停或重挫跌停）」的標的。
+請分析以下股票的最新新聞與價量特徵，並嚴格按照標準給予 1-5 顆星評分。
 
-評分標準（1-5 顆星）：
-- 5星：極度看多，重大利多消息（如：獨家大單、業績暴增、法說會超預期）
-- 4星：明確看多，正面消息有實質影響（如：營收創高、產業趨勢向上）
-- 3星：中性偏多，消息面正面但影響有限
-- 2星：中性偏空，消息面混合或影響不確定
-- 1星：看空，負面消息明顯（如：營收衰退、被降評）
+【評分標準】
+- 1星 (雜訊)：市場已知舊聞、無關緊要的公告、缺乏熱度的常規新聞。
+- 2星 (平庸)：常規營收增長或衰退，已被市場預期 (Priced-in)，缺乏想像空間。
+- 3星 (觀察)：有不錯的題材，但新聞張力與資金共識不足以引發隔日大舉追價或拋售。
+- 4星 (強烈訊號)：具備「強大想像空間」的突發題材（如：突發性打入重量級供應鏈、跨足全新熱門產業、財報驚天大逆轉），且配合今日「成交量暴增」，明天極可能開高走高 (或開低走低)。
+- 5星 (極限妖股/大雷)：顛覆性的重磅消息（如：被溢價併購、取得史詩級大單 / 或是突發性重度利空、假帳風暴），市場情緒即將沸騰或崩潰，明天開盤極可能直接鎖死漲/跌停。
 
-重要規則：
-- 請務必嚴格評分，不要輕易給出 4-5 星
-- 只有在消息面明確且力道強大時，才給 4 星以上
-- 必須考慮消息的時效性，過期新聞降低評分
-- 分析必須基於事實，不得臆測`,
+你必須只回傳一個有效的 JSON 格式，不允許任何多餘的文字或 Markdown 標籤。`,
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: entrySchema,
