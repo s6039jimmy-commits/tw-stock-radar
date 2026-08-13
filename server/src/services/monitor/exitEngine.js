@@ -18,27 +18,7 @@ export const evaluatePosition = async (position) => {
     const currentPrice = quote.lastPrice || quote.closePrice || 0;
     if (currentPrice <= 0) return null;
 
-    // 1. 停損檢查（最高優先權）
-    const sl = checkStopLoss(position, currentPrice);
-    if (sl.triggered) {
-      return processExitAlert(position, 'STOP_LOSS', { price: currentPrice, reason: sl.reason });
-    }
-
-    // 2. 停利檢查
-    const tp = checkTakeProfit(position, currentPrice);
-    if (tp.triggered) {
-      return processExitAlert(position, 'TAKE_PROFIT', { price: currentPrice, reason: tp.reason });
-    }
-
-    // 3. MA5 跌破檢查
-    if (position.ma5_exit) {
-      const ma5 = await checkMA5Break(position);
-      if (ma5.triggered) {
-        return processExitAlert(position, 'MA5_BREAK', { price: currentPrice, reason: ma5.reason });
-      }
-    }
-
-    // 4. 消息面 AI 風險判斷
+    // 1. 消息面 AI 風險判斷 (最高優先權：一旦有重大利空立刻要求掛單賣出)
     const news = await scanPositionNews(position);
     const allNews = [...(news.cnyes || []), ...(news.twse || []), ...(news.google || [])];
     const headlines = allNews.map(n => n.title || n.主旨).filter(Boolean);
@@ -54,9 +34,29 @@ export const evaluatePosition = async (position) => {
       if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= 4) {
         return processExitAlert(position, 'NEWS_EXIT', {
           price: currentPrice,
-          reason: `AI 危險等級: ${aiResult.danger_level}/5 - ${aiResult.urgency}`,
+          reason: `🚨 重大突發利空！請立即掛「市價單」賣出！ (危險等級: ${aiResult.danger_level}/5)`,
           ai_analysis: aiResult.reasoning
         });
+      }
+    }
+
+    // 2. 停損檢查
+    const sl = checkStopLoss(position, currentPrice);
+    if (sl.triggered) {
+      return processExitAlert(position, 'STOP_LOSS', { price: currentPrice, reason: sl.reason });
+    }
+
+    // 3. 停利檢查
+    const tp = checkTakeProfit(position, currentPrice);
+    if (tp.triggered) {
+      return processExitAlert(position, 'TAKE_PROFIT', { price: currentPrice, reason: tp.reason });
+    }
+
+    // 4. MA5 跌破檢查
+    if (position.ma5_exit) {
+      const ma5 = await checkMA5Break(position);
+      if (ma5.triggered) {
+        return processExitAlert(position, 'MA5_BREAK', { price: currentPrice, reason: ma5.reason });
       }
     }
 
@@ -87,7 +87,7 @@ export const evaluatePositionNewsOnly = async (position) => {
       if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= 4) {
         return processExitAlert(position, 'PRE_MARKET_EXIT', {
           price: position.current_price || position.entry_price, // 盤前可能無最新報價，用現有價
-          reason: `盤前極度危險: ${aiResult.danger_level}/5 - ${aiResult.urgency}`,
+          reason: `🚨 開盤前極度危險！請立即掛「市價單」賣出！ (危險等級: ${aiResult.danger_level}/5)`,
           ai_analysis: aiResult.reasoning
         });
       }
