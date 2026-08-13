@@ -123,24 +123,24 @@ export default function ChatPage() {
   ];
 
   return (
-    <div className="w-full h-[calc(100vh-64px-60px)] md:h-[calc(100vh-64px)] -m-4 md:-m-6 flex flex-col bg-[var(--bg-primary)]">
-      <div className="w-full h-full max-w-4xl mx-auto flex flex-col md:border-x border-[var(--card-border)] bg-white md:bg-[var(--card-bg)] shadow-sm">
+    <div className="w-full h-[calc(100dvh-60px)] md:h-screen flex flex-col bg-white md:bg-[var(--bg-primary)]">
+      <div className="w-full h-full max-w-4xl mx-auto flex flex-col md:border-x border-[var(--card-border)] bg-white md:bg-[var(--card-bg)] shadow-sm relative z-10">
         
         {/* 對話框 Header */}
-        <div className="p-4 border-b border-[var(--card-border)] bg-[var(--card-bg)] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-              <Bot size={22} />
+        <div className="p-3 md:p-4 border-b border-[var(--card-border)] bg-white/95 md:bg-[var(--card-bg)] flex items-center justify-between shrink-0 sticky top-0 z-20">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+              <Bot size={20} className="md:w-6 md:h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-primary">AI 專屬台股策略顧問</h3>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>
-                  Gemini 2.5 在線
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                <h3 className="font-bold text-sm md:text-base text-primary truncate">AI 策略顧問</h3>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1 shrink-0"></span>
+                  Gemini 在線
                 </span>
               </div>
-              <p className="text-xs text-muted">即時解答個股疑慮、做空風險與新聞深析</p>
+              <p className="text-[10px] md:text-xs text-muted truncate">即時解答個股疑慮與新聞深析</p>
             </div>
           </div>
 
@@ -217,9 +217,9 @@ export default function ChatPage() {
         </div>
 
         {/* 快捷指令 Quick Prompts */}
-        <div className="p-3 border-t border-[var(--card-border)] bg-black/20 flex flex-col gap-2">
-          <div className="text-[11px] text-muted flex items-center gap-1 font-medium">
-            <Sparkles size={12} className="text-amber-400" />
+        <div className="p-3 bg-white/95 md:bg-black/20 flex flex-col gap-2 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] z-20 border-t border-slate-100 md:border-[var(--card-border)]">
+          <div className="text-[11px] text-slate-500 md:text-muted flex items-center gap-1 font-medium">
+            <Sparkles size={12} className="text-amber-500 md:text-amber-400" />
             <span>快捷提問推薦（點擊直接詢問）：</span>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -228,7 +228,7 @@ export default function ChatPage() {
                 key={i}
                 onClick={() => handleSend(qp.text)}
                 disabled={loading}
-                className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-blue-600/20 border border-white/10 hover:border-blue-500/40 text-secondary hover:text-blue-300 transition-all flex items-center gap-1"
+                className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 transition-all flex items-center gap-1 md:bg-white/5 md:border-white/10 md:text-secondary md:hover:text-blue-300 md:hover:border-blue-500/40"
               >
                 <span>{qp.label}</span>
                 <ArrowRight size={12} className="opacity-60" />
@@ -238,19 +238,22 @@ export default function ChatPage() {
         </div>
 
         {/* 輸入框 Input Bar */}
-        <div className="p-3 border-t border-[var(--card-border)] bg-[var(--card-bg)] flex items-center gap-2">
+        <div 
+          className="p-3 bg-white md:bg-[var(--card-bg)] flex items-center gap-2 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.04)]"
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+        >
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={stockContext ? `詢問關於 ${stockContext.symbol} 的任何問題...` : "輸入你的問題 (例如：這檔現在做空安全嗎？)"}
             rows="1"
-            className="input flex-1 resize-none py-2.5 text-sm bg-black/30"
+            className="input flex-1 resize-none py-3 text-sm bg-slate-100 text-slate-900 placeholder-slate-400 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:bg-black/30 md:text-white md:placeholder-white/40 shadow-inner rounded-xl"
           />
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || loading}
-            className="btn btn-primary p-2.5 rounded-xl shrink-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20"
+            className="btn btn-primary p-3 rounded-xl shrink-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
           >
             <Send size={18} />
           </button>
