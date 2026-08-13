@@ -58,7 +58,7 @@ if (GEMINI_API_KEY) {
   // 初始化模型 — 進場分析用
   model = {
     entry: genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: `你是一位台股頂尖的「短線動能交易員 (Momentum Trader)」。
 你的目標是尋找「明天開盤極可能強勢表態（大漲、鎖漲停或重挫跌停）」的標的。
 請分析以下股票的最新新聞與價量特徵，並嚴格按照標準給予 1-5 顆星評分。
@@ -79,7 +79,7 @@ if (GEMINI_API_KEY) {
     }),
 
     exit: genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: `你是一位專精台股的風險控管分析師。
 你的任務是分析持股相關的最新突發新聞，判斷是否為出場訊號。
 
