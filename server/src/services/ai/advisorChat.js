@@ -10,16 +10,16 @@ if (GEMINI_API_KEY) {
   genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 }
 
-const SYSTEM_INSTRUCTION = `你是一位擁有 25 年台股實戰經驗的「頂尖量化策略顧問」。
-使用者是一位喜歡「少而精、一針見血」且希望聽「白話文」的投資人，極度討厭冗長囉嗦與賣弄專有名詞的分析報告。
+const SYSTEM_INSTRUCTION = `你是一位擁有 25 年台股實戰經驗的「頂級量化策略顧問」。
+使用者非常討厭「沒有數據支撐的廢話」與「投顧老師式的空泛口號」。
 
 回答原則（極度重要）：
-1. **極度精簡 (少而精)**：字數必須控制在 150 字以內！直接講重點，絕對不要長篇大論。
-2. **直接給結論**：開頭第一句話就清楚告訴使用者「可以進場」、「可以做空」、「先觀望」還是「趕快跑」。
-3. **用白話文解釋「為什麼」**：用一般人聽得懂的大白話解釋你為什麼這樣建議。不要只拋出「MACD背離」、「布林通道收斂」等生硬名詞，要轉化為白話（例如：「大戶都在偷偷倒貨，主力不想玩了」或「這檔現在籌碼很乾淨，沒人跟你搶」）。
-4. **絕對自信**：語氣要有 5 顆星的強烈自信，像一位頂級操盤手。如果不能碰，就直接說「這檔現在是垃圾，不要碰」。
-5. **明確點位**：直接給出一個具體的停損或停利價位。
-6. **免責聲明**：文末用最短的一句話「(投資盈虧自負)」帶過即可。`;
+1. **極度精簡**：字數控制在 150 字以內，直接講重點。
+2. **直接給結論**：開頭第一句話清楚告知「可進場」、「偏空」、「觀望」。
+3. **根據真實數據推理 (嚴禁瞎掰)**：我會提供這檔股票的「月營收、法人買賣超、主力分點(含隔日沖判定)」。你【必須】引用這些真實的籌碼與基本面數據來說明理由。例如：「外資昨日倒貨 5000 張，且買超第一名是隔日沖凱基台北，籌碼極度混亂，建議觀望」。
+4. **絕對禁止說空話**：絕對不准說出「這價位很甜不要猶豫」、「大戶根本沒在怕」這種毫無數據支撐的情緒化字眼！如果不符合進場標準，請直接無情打槍。
+5. **明確點位**：給出具體的停損或停利參考價。
+6. **免責聲明**：文末附上「(量化評估結果，投資盈虧自負)」。`;
 
 /**
  * 處理使用者與 AI 股市顧問的對話
@@ -47,22 +47,33 @@ export const chatWithAdvisor = async ({ message, history = [], stockContext = nu
       targetSymbol = await extractStockSymbol(message);
     }
 
-    // 若有對應股票，自動補充即時行情與新聞數據
+    // 若有對應股票，自動補充極致深度的量化數據
     let contextPrompt = '';
     if (targetSymbol) {
       try {
-        const quote = await getQuote(targetSymbol);
-        const news = await fetchNewsByTicker(targetSymbol, 3);
+        const { getRevenueForSymbol } = await import('../fundamentals/revenue.js');
+        const { getChipsForSymbol } = await import('../fundamentals/chips.js');
+        const { getBrokerTracking } = await import('../fundamentals/brokerTracking.js');
         
-        contextPrompt = `\n【系統提供個股即時數據資料】：
+        const [quote, news, revenue, chips, brokers] = await Promise.all([
+          getQuote(targetSymbol),
+          fetchNewsByTicker(targetSymbol, 3),
+          getRevenueForSymbol(targetSymbol),
+          getChipsForSymbol(targetSymbol),
+          getBrokerTracking(targetSymbol)
+        ]);
+        
+        contextPrompt = `\n【系統提供個股超深度量化數據 (務必根據此真實數據回答，嚴禁瞎掰)】：
 股票代號：${targetSymbol} (${stockContext?.name || quote?.name || '台股'})
 即時價格：NT$ ${quote?.lastPrice || quote?.closePrice || 'N/A'} (成交量: ${quote?.totalVolume || 'N/A'})
-開盤/最高/最低：${quote?.openPrice || 'N/A'} / ${quote?.highPrice || 'N/A'} / ${quote?.lowPrice || 'N/A'}
+基本面(月營收)：${revenue ? JSON.stringify(revenue) : '無'}
+籌碼面(三大法人)：${chips ? JSON.stringify(chips) : '無'}
+主力分點(前五大買超券商與隔日沖判定)：${brokers && brokers.success ? JSON.stringify(brokers.topBuyers) : '無'}
 近期頭條新聞：
 ${news.map((n, i) => `${i + 1}. ${n.title}`).join('\n')}
 --------------------------------------------------\n`;
       } catch (e) {
-        logger.warn('AI Chat', `取得 ${targetSymbol} 即時補充資料失敗`, e);
+        logger.warn('AI Chat', `取得 ${targetSymbol} 深度補充資料失敗`, e);
       }
     }
 
