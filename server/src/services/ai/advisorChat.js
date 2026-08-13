@@ -30,7 +30,7 @@ export const chatWithAdvisor = async ({ message, history = [], stockContext = nu
 
   try {
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       systemInstruction: SYSTEM_INSTRUCTION,
       generationConfig: {
         temperature: 0.3,
@@ -57,15 +57,31 @@ ${news.map((n, i) => `${i + 1}. ${n.title}`).join('\n')}
       }
     }
 
-    // 格式化歷史對話
-    const formattedHistory = history.map(item => ({
-      role: item.role === 'user' ? 'user' : 'model',
-      parts: [{ text: item.text || item.content }]
-    }));
+    // 格式化並過濾歷史對話，確保以 user 開頭且交替
+    let validHistory = [];
+    for (const item of history) {
+      const role = item.role === 'user' ? 'user' : 'model';
+      const text = item.text || item.content || '';
+      
+      if (validHistory.length === 0 && role === 'model') continue; // 捨棄開頭的 model 訊息
+      
+      if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === role) {
+        // 同角色合併
+        validHistory[validHistory.length - 1].parts[0].text += '\n' + text;
+      } else {
+        validHistory.push({ role, parts: [{ text }] });
+      }
+    }
+
+    // 若最後一筆是 user，也必須丟棄或處理，但因為這裡是傳給 history，目前的 request message 才是最新的 user 訊息
+    // 所以 history 應該是以 model 結尾。如果是以 user 結尾會報錯
+    if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
+      validHistory.pop();
+    }
 
     // 開啟 Chat Session
     const chat = model.startChat({
-      history: formattedHistory
+      history: validHistory
     });
 
     const fullPrompt = `${contextPrompt}${message}`;
