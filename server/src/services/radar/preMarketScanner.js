@@ -26,7 +26,7 @@ export const generatePreMarketReport = async () => {
     if (process.env.GEMINI_API_KEY) {
       const { GoogleGenerativeAI } = await import('@google/generative-ai');
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       
       const prompt = `你是一位資深的台股分析師。現在是早上 08:30，台股即將開盤。
 請根據以下「美股 ADR 隔夜表現」與「最新重大財經新聞」，撰寫一段約 150 字的【今日台股多空風向球】總結。

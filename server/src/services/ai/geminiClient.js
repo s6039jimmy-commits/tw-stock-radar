@@ -102,7 +102,7 @@ if (GEMINI_API_KEY) {
     })
   };
 
-  logger.info('Gemini API', 'AI 分析引擎初始化成功 (gemini-2.0-flash)');
+  logger.info('Gemini API', 'AI 分析引擎初始化成功 (gemini-1.5-flash)');
 } else {
   logger.warn('Gemini API', '未設定 GEMINI_API_KEY，將無法進行 AI 分析');
 }
