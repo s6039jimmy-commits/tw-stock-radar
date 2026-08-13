@@ -327,16 +327,32 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 2rem;
+  padding: 0 1rem;
   z-index: 30;
+}
+@media (min-width: 768px) {
+  .header {
+    padding: 0 2rem;
+  }
 }
 
 .main-content {
-  margin-left: var(--sidebar-width);
+  margin-left: 0;
   min-height: 100vh;
 }
+@media (min-width: 768px) {
+  .main-content {
+    margin-left: var(--sidebar-width);
+  }
+}
+
 .page-container {
-  padding: 2rem;
+  padding: 1rem;
   max-width: 1400px;
   margin: 0 auto;
+}
+@media (min-width: 768px) {
+  .page-container {
+    padding: 2rem;
+  }
 }

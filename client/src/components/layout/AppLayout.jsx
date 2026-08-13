@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import AIChatModal from '../common/AIChatModal';
+import BottomNavigation from './BottomNavigation';
 
 export default function AppLayout({ children }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -22,14 +23,14 @@ export default function AppLayout({ children }) {
   return (
     <div className="flex bg-[var(--bg-primary)] min-h-screen relative">
       <Sidebar />
-      <div className="flex-1 main-content flex flex-col min-w-0">
+      <div className="flex-1 main-content flex flex-col min-w-0 md:pl-0 pb-20 md:pb-0">
         <Header />
         <main className="flex-1 page-container w-full animate-fade-in">
           {children}
         </main>
       </div>
 
-
+      <BottomNavigation />
 
       {/* AI Chatbox Modal */}
       <AIChatModal 
