@@ -10,8 +10,8 @@ export default function BottomNavigation() {
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0a0e1a]/95 backdrop-blur-xl border-t border-[var(--card-border)] z-50 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
-      <div className="flex justify-between items-end h-[60px] pb-1 max-w-md mx-auto relative">
+    <div className="bottom-nav-container">
+      <div className="flex justify-between items-end h-[60px] pb-1 w-full max-w-md mx-auto relative">
         
         {/* Left Side Items */}
         <div className="flex flex-1 justify-around items-center h-full">
@@ -22,11 +22,11 @@ export default function BottomNavigation() {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) => 
-                  `flex flex-col items-center justify-center w-14 gap-1 transition-all duration-300 ${isActive ? 'text-[var(--accent-blue)] scale-110' : 'text-secondary hover:text-white'}`
+                  `flex flex-col items-center justify-center w-14 gap-1 transition-all duration-300 ${isActive ? 'text-[var(--accent-blue)] font-bold' : 'text-secondary hover:text-[var(--accent-blue)]'}`
                 }
               >
                 <Icon size={22} className="mb-0.5" />
-                <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
+                <span className="text-[10px] tracking-wide">{item.label}</span>
               </NavLink>
             );
           })}
@@ -36,11 +36,11 @@ export default function BottomNavigation() {
         <div className="flex flex-col items-center justify-center w-[80px] -mt-6">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('open-ai-chat'))}
-            className="w-[56px] h-[56px] rounded-full bg-gradient-to-tr from-[var(--accent-blue)] to-[var(--accent-purple)] flex items-center justify-center shadow-[0_4px_15px_rgba(59,130,246,0.6)] border-[4px] border-[#0a0e1a] transform hover:scale-105 transition-transform active:scale-95 z-10"
+            className="w-[56px] h-[56px] rounded-full bg-gradient-to-tr from-[var(--accent-blue)] to-[var(--accent-purple)] flex items-center justify-center shadow-[0_4px_15px_rgba(37,99,235,0.4)] border-[4px] border-[var(--bg-secondary)] transform hover:scale-105 transition-transform active:scale-95 z-10"
           >
             <Bot size={26} className="text-white" />
           </button>
-          <span className="text-[10px] font-bold text-[var(--accent-blue)] mt-1 drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">AI 顧問</span>
+          <span className="text-[10px] font-bold text-[var(--accent-blue)] mt-1 drop-shadow-[0_0_2px_rgba(255,255,255,1)]">AI 顧問</span>
         </div>
 
         {/* Right Side Items */}
@@ -52,11 +52,11 @@ export default function BottomNavigation() {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) => 
-                  `flex flex-col items-center justify-center w-14 gap-1 transition-all duration-300 ${isActive ? 'text-[var(--accent-blue)] scale-110' : 'text-secondary hover:text-white'}`
+                  `flex flex-col items-center justify-center w-14 gap-1 transition-all duration-300 ${isActive ? 'text-[var(--accent-blue)] font-bold' : 'text-secondary hover:text-[var(--accent-blue)]'}`
                 }
               >
                 <Icon size={22} className="mb-0.5" />
-                <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
+                <span className="text-[10px] tracking-wide">{item.label}</span>
               </NavLink>
             );
           })}

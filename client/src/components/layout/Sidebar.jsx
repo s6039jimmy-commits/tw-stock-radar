@@ -14,7 +14,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="sidebar hidden md:flex">
+    <aside className="sidebar">
       <div className="p-6 border-b border-[var(--card-border)] flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent-blue)] to-[var(--accent-purple)] flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.5)]">
           <Radar size={20} className="text-white" />

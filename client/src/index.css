@@ -2,19 +2,19 @@
 
 :root {
   /* Colors */
-  --bg-primary: #0a0e1a;
-  --bg-secondary: #111827;
-  --card-bg: rgba(17, 24, 39, 0.7);
-  --card-border: rgba(255, 255, 255, 0.08);
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(0, 0, 0, 0.08);
   
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
   
   /* Accent Colors */
-  --accent-blue: #3b82f6;
-  --accent-gold: #f59e0b;
-  --accent-purple: #8b5cf6;
+  --accent-blue: #2563eb;
+  --accent-gold: #d97706;
+  --accent-purple: #7c3aed;
   
   /* Taiwan Stock Conventions */
   --color-up: #ef4444;    /* Red for UP/bullish */
@@ -38,9 +38,9 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: #030712;
-  /* Glowing Hexagon Pattern */
-  background-image: url("data:image/svg+xml,%3Csvg width='80' height='138.56' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M80 23.09L40 0 0 23.09v46.18L40 92.36l40-23.09V23.09zm-2 43.87L40 87.74 2 65.81V24.25L40 2.32l38 21.93v42.71z' fill='%233b82f6' fill-opacity='0.07' fill-rule='evenodd'/%3E%3C/svg%3E");
+  background-color: var(--bg-primary);
+  /* Light Blue/Silver Hexagon Pattern */
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='138.56' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M80 23.09L40 0 0 23.09v46.18L40 92.36l40-23.09V23.09zm-2 43.87L40 87.74 2 65.81V24.25L40 2.32l38 21.93v42.71z' fill='%2364748b' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
   background-attachment: fixed;
   color: var(--text-primary);
   line-height: 1.5;
@@ -49,7 +49,7 @@ body {
   position: relative;
 }
 
-/* Sci-fi Marquee / Scanning Line Effect */
+/* Horizontal Flowing Light Effect */
 body::before {
   content: '';
   position: fixed;
@@ -57,16 +57,16 @@ body::before {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(to bottom, transparent 0%, rgba(59, 130, 246, 0.05) 45%, rgba(139, 92, 246, 0.3) 50%, rgba(59, 130, 246, 0.05) 55%, transparent 100%);
-  background-size: 100% 200%;
-  animation: scanline 4s linear infinite;
+  background: linear-gradient(to right, transparent 0%, rgba(59, 130, 246, 0.03) 45%, rgba(59, 130, 246, 0.12) 50%, rgba(59, 130, 246, 0.03) 55%, transparent 100%);
+  background-size: 200% 100%;
+  animation: scanlineHorizontal 8s linear infinite;
   pointer-events: none;
   z-index: -1;
 }
 
-@keyframes scanline {
-  0% { background-position: 0 -100vh; }
-  100% { background-position: 0 100vh; }
+@keyframes scanlineHorizontal {
+  0% { background-position: -100vw 0; }
+  100% { background-position: 100vw 0; }
 }
 
 /* Scrollbar Customization */
@@ -316,9 +316,34 @@ body::before {
   top: 0;
   background: var(--bg-secondary);
   border-right: 1px solid var(--card-border);
-  display: flex;
+  display: none;
   flex-direction: column;
   z-index: 40;
+}
+@media (min-width: 768px) {
+  .sidebar {
+    display: flex;
+  }
+}
+
+.bottom-nav-container {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--card-border);
+  z-index: 50;
+  padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom)) 0.5rem;
+  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.05);
+}
+@media (min-width: 768px) {
+  .bottom-nav-container {
+    display: none;
+  }
 }
 .sidebar-link {
   display: flex;
@@ -363,10 +388,12 @@ body::before {
 .main-content {
   margin-left: 0;
   min-height: 100vh;
+  padding-bottom: 5rem;
 }
 @media (min-width: 768px) {
   .main-content {
     margin-left: var(--sidebar-width);
+    padding-bottom: 0;
   }
 }
 

@@ -23,7 +23,7 @@ export default function AppLayout({ children }) {
   return (
     <div className="flex bg-[var(--bg-primary)] min-h-screen relative">
       <Sidebar />
-      <div className="flex-1 main-content flex flex-col min-w-0 md:pl-0 pb-20 md:pb-0">
+      <div className="flex-1 main-content flex flex-col min-w-0">
         <Header />
         <main className="flex-1 page-container w-full animate-fade-in">
           {children}
