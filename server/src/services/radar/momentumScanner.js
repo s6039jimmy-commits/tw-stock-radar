@@ -77,6 +77,20 @@ export const scan = async () => {
 
         // 取得即時報價
         const quote = await getQuote(symbol);
+        
+        // 過濾冷門股與水餃股 (必須有報價，且價格 > 15，成交量 > 2000張)
+        const lastPrice = quote?.lastPrice || quote?.closePrice || 0;
+        const tradeVolume = quote?.total?.tradeVolume || 0; // 單位：股
+        
+        if (lastPrice < 15) {
+          logger.info('Momentum Scanner', `跳過冷門股 ${symbol}：股價低於 15 元 (${lastPrice})`);
+          continue;
+        }
+        if (tradeVolume > 0 && tradeVolume < 2000000) { // 少於 2000 張 (2百萬股)
+          logger.info('Momentum Scanner', `跳過冷門股 ${symbol}：成交量不足 2000 張 (${tradeVolume / 1000} 張)`);
+          continue;
+        }
+
         const volumeRatio = item.volumeRatio || item.volume_ratio || VOLUME_RATIO_THRESHOLD;
 
         // AI 分析
