@@ -10,48 +10,55 @@ export default function MarketOverview() {
   ]);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/market/quote/IX0001').then(res => res.json()).catch(() => ({})),
-      fetch('/api/market/quote/IX0043').then(res => res.json()).catch(() => ({}))
-    ]).then(([tseRes, otcRes]) => {
-      setData(prev => {
-        const newData = [...prev];
-        let totalVolume = 0;
-        
-        if (tseRes?.success && tseRes?.data) {
-          const q = tseRes.data;
-          newData[0] = {
-            ...newData[0],
-            value: q.closePrice || q.lastPrice || 0,
-            change: q.change || 0,
-            changePct: q.changePercent || 0
-          };
-          if (q.total && q.total.tradeValue) {
-            totalVolume += q.total.tradeValue;
+    const fetchMarketData = () => {
+      Promise.all([
+        fetch('/api/market/quote/IX0001').then(res => res.json()).catch(() => ({})),
+        fetch('/api/market/quote/IX0043').then(res => res.json()).catch(() => ({}))
+      ]).then(([tseRes, otcRes]) => {
+        setData(prev => {
+          const newData = [...prev];
+          let totalVolume = 0;
+          
+          if (tseRes?.success && tseRes?.data) {
+            const q = tseRes.data;
+            newData[0] = {
+              ...newData[0],
+              value: q.closePrice || q.lastPrice || 0,
+              change: q.change || 0,
+              changePct: q.changePercent || 0
+            };
+            if (q.total && q.total.tradeValue) {
+              totalVolume += q.total.tradeValue;
+            }
           }
-        }
-        
-        if (otcRes?.success && otcRes?.data) {
-          const q = otcRes.data;
-          newData[1] = {
-            ...newData[1],
-            value: q.closePrice || q.lastPrice || 0,
-            change: q.change || 0,
-            changePct: q.changePercent || 0
-          };
-          if (q.total && q.total.tradeValue) {
-            totalVolume += q.total.tradeValue;
+          
+          if (otcRes?.success && otcRes?.data) {
+            const q = otcRes.data;
+            newData[1] = {
+              ...newData[1],
+              value: q.closePrice || q.lastPrice || 0,
+              change: q.change || 0,
+              changePct: q.changePercent || 0
+            };
+            if (q.total && q.total.tradeValue) {
+              totalVolume += q.total.tradeValue;
+            }
           }
-        }
-        
-        if (totalVolume > 0) {
-          const volumeInYi = (totalVolume / 100000000).toLocaleString('en-US', { maximumFractionDigits: 0 });
-          newData[2] = { ...newData[2], value: volumeInYi };
-        }
-        
-        return newData;
+          
+          if (totalVolume > 0) {
+            const volumeInYi = (totalVolume / 100000000).toLocaleString('en-US', { maximumFractionDigits: 0 });
+            newData[2] = { ...newData[2], value: volumeInYi };
+          }
+          
+          return newData;
+        });
       });
-    });
+    };
+
+    fetchMarketData(); // initial load
+    const intervalId = setInterval(fetchMarketData, 15000); // auto update every 15s
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   return (
