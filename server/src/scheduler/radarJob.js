@@ -3,8 +3,8 @@ import { RADAR_SCAN_INTERVAL_MIN } from '../config/index.js';
 import { isMarketOpen } from '../utils/helpers.js';
 import { scan as scanBlueChip } from '../services/radar/blueChipScanner.js';
 import { scan as scanMomentum } from '../services/radar/momentumScanner.js';
-import { addRadarSignal } from '../db/database.js';
-import { sendEntrySignal } from '../services/notify/telegram.js';
+import { scanNightSession } from '../services/radar/nightScanner.js';
+import { generatePreMarketReport } from '../services/radar/preMarketScanner.js';
 import { logger } from '../utils/logger.js';
 
 export const runBlueChipScan = async () => {
@@ -16,8 +16,11 @@ export const runMomentumScan = async () => {
 };
 
 export const runPreMarketScan = async () => {
-  logger.info('Scheduler', '執行盤前新聞掃描...');
-  await runBlueChipScan();
+  await generatePreMarketReport();
+};
+
+export const runNightScan = async () => {
+  await scanNightSession();
 };
 
 export const runPostMarketSummary = async () => {
@@ -33,8 +36,12 @@ export const startRadarJobs = () => {
     }
   });
   
-  // 盤前 (08:30)
+  // 夜盤掃描 (15:00 到 05:00，每 15 分鐘一次)
+  cron.schedule('*/15 15-23,0-5 * * 1-5', runNightScan);
+  
+  // 盤前早報 (08:30)
   cron.schedule('30 8 * * 1-5', runPreMarketScan);
-  // 盤後 (14:00)
+  
+  // 盤後總結 (14:00)
   cron.schedule('0 14 * * 1-5', runPostMarketSummary);
 };

@@ -6,7 +6,7 @@ import { addPosition, getSetting, setSetting } from '../../db/database.js';
 let botInstance = null;
 let currentToken = null;
 
-const getBot = (overrideToken = null) => {
+export const getBot = (overrideToken = null) => {
   const token = overrideToken || process.env.TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN;
   if (!token) return null;
 
