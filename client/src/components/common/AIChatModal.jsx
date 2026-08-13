@@ -124,7 +124,7 @@ export default function AIChatModal({ isOpen, onClose, stockContext = null }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="card-glass w-full h-full md:max-w-2xl md:h-[85vh] flex flex-col shadow-2xl md:border border-[var(--card-border)] md:rounded-2xl overflow-hidden animate-slide-up bg-[#0B1121] md:bg-transparent">
+      <div className="w-full h-[100dvh] md:max-w-2xl md:h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up bg-white md:bg-[var(--card-bg)] md:backdrop-blur-md border-0 md:border border-[var(--card-border)] rounded-none md:rounded-2xl">
         
         {/* 對話框 Header */}
         <div className="p-4 border-b border-[var(--card-border)] bg-[var(--card-bg)] flex items-center justify-between">
