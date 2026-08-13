@@ -68,6 +68,38 @@ export const evaluatePosition = async (position) => {
 };
 
 /**
+ * 盤前專用：僅評估突發新聞與消息面，不依賴開盤價
+ */
+export const evaluatePositionNewsOnly = async (position) => {
+  try {
+    const news = await scanPositionNews(position);
+    const allNews = [...(news.cnyes || []), ...(news.twse || []), ...(news.google || [])];
+    const headlines = allNews.map(n => n.title || n.主旨).filter(Boolean);
+    
+    if (headlines.length > 0) {
+      const aiResult = await analyzeExit(
+        position.symbol, 
+        position.name, 
+        position, 
+        headlines.map(h => ({ title: h }))
+      );
+
+      if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= 4) {
+        return processExitAlert(position, 'PRE_MARKET_EXIT', {
+          price: position.current_price || position.entry_price, // 盤前可能無最新報價，用現有價
+          reason: `盤前極度危險: ${aiResult.danger_level}/5 - ${aiResult.urgency}`,
+          ai_analysis: aiResult.reasoning
+        });
+      }
+    }
+    return null;
+  } catch (e) {
+    logger.error('Exit Engine', `盤前評估 ${position.symbol} 新聞失敗`, e);
+    return null;
+  }
+};
+
+/**
  * 處理出場警報：寫入資料庫 + 推播通知
  */
 export const processExitAlert = async (position, alertType, triggerData) => {
