@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_API_KEY } from '../../config/index.js';
 import { getQuote } from '../fugle/marketData.js';
 import { fetchNewsByTicker } from '../news/cnyesNews.js';
+import { extractStockSymbol } from './geminiClient.js';
 import { logger } from '../../utils/logger.js';
 
 let genAI = null;
@@ -40,22 +41,28 @@ export const chatWithAdvisor = async ({ message, history = [], stockContext = nu
       }
     });
 
-    // 若對話包含個股上下文，嘗試自動補充即時行情與新聞數據
+    // 嘗試解析使用者訊息中的股票代號
+    let targetSymbol = stockContext?.symbol;
+    if (!targetSymbol) {
+      targetSymbol = await extractStockSymbol(message);
+    }
+
+    // 若有對應股票，自動補充即時行情與新聞數據
     let contextPrompt = '';
-    if (stockContext && stockContext.symbol) {
+    if (targetSymbol) {
       try {
-        const quote = await getQuote(stockContext.symbol);
-        const news = await fetchNewsByTicker(stockContext.symbol, 3);
+        const quote = await getQuote(targetSymbol);
+        const news = await fetchNewsByTicker(targetSymbol, 3);
         
         contextPrompt = `\n【系統提供個股即時數據資料】：
-股票代號：${stockContext.symbol} (${stockContext.name || '台股'})
+股票代號：${targetSymbol} (${stockContext?.name || quote?.name || '台股'})
 即時價格：NT$ ${quote?.lastPrice || quote?.closePrice || 'N/A'} (成交量: ${quote?.totalVolume || 'N/A'})
 開盤/最高/最低：${quote?.openPrice || 'N/A'} / ${quote?.highPrice || 'N/A'} / ${quote?.lowPrice || 'N/A'}
 近期頭條新聞：
 ${news.map((n, i) => `${i + 1}. ${n.title}`).join('\n')}
 --------------------------------------------------\n`;
       } catch (e) {
-        logger.warn('AI Chat', `取得 ${stockContext.symbol} 即時補充資料失敗`, e);
+        logger.warn('AI Chat', `取得 ${targetSymbol} 即時補充資料失敗`, e);
       }
     }
 

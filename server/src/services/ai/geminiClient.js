@@ -99,6 +99,13 @@ if (GEMINI_API_KEY) {
         responseSchema: exitSchema,
         temperature: 0.1
       }
+    }),
+
+    textExtractor: genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.1
+      }
     })
   };
 
@@ -180,5 +187,30 @@ export const testAnalysis = async () => {
     return { connected: true, response: result.response.text() };
   } catch (error) {
     return { connected: false, reason: error.message };
+  }
+};
+/**
+ * 從使用者訊息中擷取股票代號
+ */
+export const extractStockSymbol = async (text) => {
+  if (!model || !model.textExtractor) return null;
+  const prompt = `請判斷以下這段話是否有提到任何「台灣股票（例如台積電、國巨、鴻海等）」。
+如果有，請「只」回傳該股票的 4 碼數字代號（例如：2327）。
+如果沒有提到任何明確股票，或你無法確定代號，請「只」回傳字串 "null"。
+不要回傳任何其他多餘的文字或符號。
+
+對話內容：
+"${text}"`;
+  
+  try {
+    const result = await model.textExtractor.generateContent(prompt);
+    const code = result.response.text().trim();
+    if (/^\d{4}$/.test(code)) {
+      return code;
+    }
+    return null;
+  } catch(e) {
+    logger.error('Gemini API', '股票代號擷取失敗', e);
+    return null;
   }
 };
