@@ -87,8 +87,8 @@ const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
 };
 
 export const sendEntrySignal = async (signal) => {
-  if (signal.ai_stars < 4) {
-    logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 4 星推播門檻，跳過推播。`);
+  if (signal.ai_stars < 5) {
+    logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 5 星推播門檻，跳過推播。`);
     return false;
   }
 
@@ -101,8 +101,8 @@ export const sendEntrySignal = async (signal) => {
     setSetting('DAILY_PUSH_DATE', today);
   }
 
-  if (pushCount >= 5) {
-    logger.info('Telegram', `今日推播已達上限 (5 筆)，跳過信號 ${signal.symbol}`);
+  if (pushCount >= 1) {
+    logger.info('Telegram', `今日推播已達上限 (1 筆)，跳過信號 ${signal.symbol}`);
     return false;
   }
 
