@@ -117,7 +117,7 @@ if (GEMINI_API_KEY) {
 /**
  * 分析個股進場潛力
  */
-export const analyzeEntry = async (symbol, companyName, newsItems, priceData, revenueData = null, chipsData = null) => {
+export const analyzeEntry = async (symbol, companyName, newsItems, priceData, revenueData = null, chipsData = null, brokersData = null) => {
   if (!model) return null;
 
   const newsText = newsItems.map((n, i) => `${i + 1}. ${n.title || n}`).join('\n');
@@ -138,7 +138,10 @@ ${revenueData ? JSON.stringify(revenueData, null, 2) : '暫無'}
 籌碼面 (三大法人近一日買賣超)：
 ${chipsData ? JSON.stringify(chipsData, null, 2) : '暫無'}
 
-請根據以上資訊（綜合新聞、價量、營收成長性與法人籌碼動向），給出 1-5 星的信心評分與詳細分析。`;
+主力分點進出 (前五大買超券商)：
+${brokersData && brokersData.success ? JSON.stringify(brokersData.topBuyers, null, 2) : '暫無'}
+
+請根據以上資訊（綜合新聞、價量、營收成長性、法人籌碼動向、主力分點有無隔日沖），給出 1-5 星的信心評分與詳細分析。若是隔日沖大戶大買，應適度降低長期看好評等或提示風險。`;
 
   try {
     const result = await model.entry.generateContent(prompt);

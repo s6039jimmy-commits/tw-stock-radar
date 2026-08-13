@@ -1,5 +1,6 @@
 import { getRevenueForSymbol } from '../fundamentals/revenue.js';
 import { getChipsForSymbol } from '../fundamentals/chips.js';
+import { getBrokerTracking } from '../fundamentals/brokerTracking.js';
 import { getQuote } from '../fugle/marketData.js';
 import { fetchNewsByTicker } from '../news/cnyesNews.js';
 import { fetchNewsForStock } from '../news/googleNews.js';
@@ -20,17 +21,12 @@ const BLUE_CHIP_SET = new Set([
 
 /**
  * 飆股雷達掃描
- * 1. 從上市櫃重大訊息中找出今日有發布消息的股票 (抓取中小型股)
- * 2. 過濾大型股
- * 3. 搭配新聞送入 Gemini 分析
- * 4. 回傳 4 星以上的信號
  */
 export const scan = async () => {
   logger.info('Momentum Scanner', '🔍 開始執行飆股雷達掃描...');
   const signals = [];
 
   try {
-    // 取得今日有重大訊息的公司 (通常包含中小型與不知名股票)
     const announcements = await getAllMajorAnnouncements();
     const activeMap = new Map();
     
@@ -40,7 +36,6 @@ export const scan = async () => {
       }
     });
 
-    // 如果假日沒重大訊息，使用中小型活躍股作為備用
     if (activeMap.size === 0) {
       const fallbacks = [
         { symbol: '1519', name: '華城' }, { symbol: '3324', name: '雙鴻' }, 
@@ -54,21 +49,16 @@ export const scan = async () => {
     }
 
     const allActives = Array.from(activeMap.values());
-    // 隨機打亂順序，每次掃描不同的小股票
     allActives.sort(() => Math.random() - 0.5);
-
-    // 過濾：排除大型股
     const candidates = allActives.filter(item => !BLUE_CHIP_SET.has(item.symbol));
 
     logger.info('Momentum Scanner', `篩選出 ${candidates.length} 檔候選飆股`);
 
-    // 逐一分析（限制前 10 檔避免 API 過載）
     for (const item of candidates.slice(0, 10)) {
       try {
         const symbol = item.symbol;
         const name = item.name || symbol;
 
-        // 取得相關新聞 (鉅亨網 + Google News)
         const cnyesNews = await fetchNewsByTicker(symbol, 2);
         const googleNews = await fetchNewsForStock(symbol, name);
         
@@ -77,33 +67,29 @@ export const scan = async () => {
           newsItems = [{ title: `${name} 近期無重大新聞，但技術面或籌碼面出現異常波動` }];
         }
 
-        // 取得即時報價與基本面籌碼
-        const [quote, revenue, chips] = await Promise.all([
+        const [quote, revenue, chips, brokers] = await Promise.all([
           getQuote(symbol),
           getRevenueForSymbol(symbol),
-          getChipsForSymbol(symbol)
+          getChipsForSymbol(symbol),
+          getBrokerTracking(symbol)
         ]);
         
-        // 過濾冷門股與水餃股 (必須有報價，且價格 > 15，成交量 > 2000張)
         const lastPrice = quote?.lastPrice || quote?.closePrice || 0;
-        const tradeVolume = quote?.total?.tradeVolume || 0; // 單位：股
+        const tradeVolume = quote?.total?.tradeVolume || 0;
         
         if (lastPrice < 15) {
-          logger.info('Momentum Scanner', `跳過冷門股 ${symbol}：股價低於 15 元 (${lastPrice})`);
           continue;
         }
-        if (tradeVolume > 0 && tradeVolume < 2000000) { // 少於 2000 張 (2百萬股)
-          logger.info('Momentum Scanner', `跳過冷門股 ${symbol}：成交量不足 2000 張 (${tradeVolume / 1000} 張)`);
+        if (tradeVolume > 0 && tradeVolume < 2000000) {
           continue;
         }
 
         const volumeRatio = item.volumeRatio || item.volume_ratio || VOLUME_RATIO_THRESHOLD;
 
-        // AI 分析
         const result = await analyzeEntry(symbol, name, newsItems, {
           ...quote,
           volumeRatio
-        }, revenue, chips);
+        }, revenue, chips, brokers);
 
         if (result && result.confidence_stars) {
           const signal = {
