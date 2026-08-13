@@ -5,7 +5,7 @@ import { scan as scanBlueChip } from '../services/radar/blueChipScanner.js';
 import { scan as scanMomentum } from '../services/radar/momentumScanner.js';
 import { scanNightSession } from '../services/radar/nightScanner.js';
 import { generatePreMarketReport } from '../services/radar/preMarketScanner.js';
-import { getTradeStats } from '../../db/database.js';
+import { getTradeStats } from '../db/database.js';
 import { sendDailySummary } from '../services/notify/telegram.js';
 import { logger } from '../utils/logger.js';
 
