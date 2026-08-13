@@ -32,12 +32,12 @@ export default function BottomNavigation() {
 
         {/* Center FAB (AI Bot) */}
         <div className="bottom-nav-fab-container">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('open-ai-chat'))}
-            className="bottom-nav-fab"
+          <NavLink
+            to="/chat"
+            className={({ isActive }) => `bottom-nav-fab ${isActive ? 'scale-110 border-emerald-400' : ''}`}
           >
             <Bot size={26} />
-          </button>
+          </NavLink>
           <span className="fab-label">AI 顧問</span>
         </div>
 

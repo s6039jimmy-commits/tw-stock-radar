@@ -5,6 +5,7 @@ import RadarPage from './pages/RadarPage';
 import MonitorPage from './pages/MonitorPage';
 import HistoryPage from './pages/HistoryPage';
 import SettingsPage from './pages/SettingsPage';
+import ChatPage from './pages/ChatPage';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/monitor" element={<MonitorPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/chat" element={<ChatPage />} />
       </Routes>
     </AppLayout>
   );

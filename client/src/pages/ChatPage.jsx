@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, X, Trash2, Sparkles, TrendingUp, ShieldAlert, FileText, ArrowRight, User } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Bot, Send, Trash2, Sparkles, TrendingUp, ShieldAlert, FileText, ArrowRight, User } from 'lucide-react';
 
-export default function AIChatModal({ isOpen, onClose, stockContext = null }) {
+export default function ChatPage() {
+  const location = useLocation();
+  const stockContext = location.state?.stockContext || null;
+
   const [messages, setMessages] = useState([
     {
       role: 'model',
@@ -19,14 +23,12 @@ export default function AIChatModal({ isOpen, onClose, stockContext = null }) {
   };
 
   useEffect(() => {
-    if (isOpen) {
-      scrollToBottom();
-    }
-  }, [messages, isOpen]);
+    scrollToBottom();
+  }, [messages]);
 
   // 當有股票 context 時，加入歡迎提示
   useEffect(() => {
-    if (stockContext && isOpen) {
+    if (stockContext) {
       const isAlreadyAdded = messages.some(m => m.stockSymbol === stockContext.symbol);
       if (!isAlreadyAdded) {
         setMessages(prev => [
@@ -40,9 +42,7 @@ export default function AIChatModal({ isOpen, onClose, stockContext = null }) {
         ]);
       }
     }
-  }, [stockContext, isOpen]);
-
-  if (!isOpen) return null;
+  }, [stockContext, messages]);
 
   const handleSend = async (customText = null) => {
     const textToSend = customText || input;
@@ -116,18 +116,18 @@ export default function AIChatModal({ isOpen, onClose, stockContext = null }) {
     { label: `🚀 這檔適合追高或分批進場嗎？`, text: `請問 ${stockContext.symbol} 現在的價位適合追高或分批佈局嗎？` },
     { label: `🎯 建議的停損與停利點位`, text: `若我現在進場 ${stockContext.symbol}，建議的嚴格停損價格與目標停利價格是多少？` }
   ] : [
-    { label: "🛡️ 某檔爆量飆股現在做空安全嗎？", text: "如果一檔中小型股今天爆量大漲，現在做空安全嗎？有哪些融券回補或拉高洗盤風險？" },
+    { label: "🛡️ 某檔爆量飆股現在做空安全嗎？", text: "如果一檔中 শক্তিশালী股今天爆量大漲，現在做空安全嗎？有哪些融券回補或拉高洗盤風險？" },
     { label: "📰 收到 4 星利多推播後如何二次確認？", text: "收到系統的 4 星進場推播通知後，我在下單前應該做哪些技術線型與籌碼的二次確認？" },
     { label: "📊 分析今日台股大盤趨勢與操作避坑指南", text: "請分析當前台股大盤的整體趨勢，以及現階段操作台股最需要注意的坑與風險控管重點。" },
     { label: "📉 股票被套牢跌破5日線該如何處置？", text: "如果持有的股票跌破5日均線(MA5)且帳面虧損，建議如何制定停損紀律？" }
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full h-[100dvh] md:max-w-2xl md:h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up bg-white md:bg-[var(--card-bg)] md:backdrop-blur-md border-0 md:border border-[var(--card-border)] rounded-none md:rounded-2xl">
+    <div className="w-full h-[calc(100vh-64px-60px)] md:h-[calc(100vh-64px)] -m-4 md:-m-6 flex flex-col bg-[var(--bg-primary)]">
+      <div className="w-full h-full max-w-4xl mx-auto flex flex-col md:border-x border-[var(--card-border)] bg-white md:bg-[var(--card-bg)] shadow-sm">
         
         {/* 對話框 Header */}
-        <div className="p-4 border-b border-[var(--card-border)] bg-[var(--card-bg)] flex items-center justify-between">
+        <div className="p-4 border-b border-[var(--card-border)] bg-[var(--card-bg)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
               <Bot size={22} />
@@ -151,16 +151,10 @@ export default function AIChatModal({ isOpen, onClose, stockContext = null }) {
                 text: '對話已重設。請問有什麼我可以協助你的嗎？',
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               }])}
-              className="p-2 text-muted hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors"
+              className="p-2 text-muted hover:text-rose-400 rounded-lg hover:bg-black/5 transition-colors"
               title="清除聊天紀錄"
             >
               <Trash2 size={18} />
-            </button>
-            <button 
-              onClick={onClose}
-              className="p-2 text-muted hover:text-primary rounded-lg hover:bg-white/5 transition-colors"
-            >
-              <X size={20} />
             </button>
           </div>
         </div>

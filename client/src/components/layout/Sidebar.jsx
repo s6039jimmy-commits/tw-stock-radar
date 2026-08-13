@@ -39,16 +39,18 @@ export default function Sidebar() {
           );
         })}
 
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent('open-ai-chat'))}
-          className="sidebar-link w-full text-left flex items-center justify-between group cursor-pointer mt-4 border border-transparent hover:border-[var(--accent-blue)]/30"
+        <NavLink
+          to="/chat"
+          className={({ isActive }) => 
+            `sidebar-link w-full text-left flex items-center justify-between group cursor-pointer mt-4 border border-transparent hover:border-[var(--accent-blue)]/30 ${isActive ? 'active' : ''}`
+          }
         >
           <div className="flex items-center gap-3">
             <Bot size={20} className="group-hover:text-[var(--accent-blue)] transition-colors" />
             <span className="font-medium text-[var(--accent-blue)]">AI 專屬顧問</span>
           </div>
           <Sparkles size={16} className="text-amber-400 opacity-70 group-hover:opacity-100 animate-pulse" />
-        </button>
+        </NavLink>
       </nav>
 
       <div className="p-4 m-4 rounded-xl bg-black/20 border border-[var(--card-border)] flex flex-col gap-2">

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Clock, Newspaper, ArrowRight, MessageSquareText } from 'lucide-react';
 import StockBadge from '../common/StockBadge';
 import StarRating from '../common/StarRating';
@@ -5,6 +6,7 @@ import ConfidenceMeter from '../common/ConfidenceMeter';
 import { formatTime, formatPrice } from '../../utils/formatters';
 
 export default function RadarSignalCard({ signal, onConfirmEntry }) {
+  const navigate = useNavigate();
   const isBullish = signal.sentiment === 'BULLISH' || signal.ai_sentiment === 'BULLISH';
   const isBearish = signal.sentiment === 'BEARISH' || signal.ai_sentiment === 'BEARISH';
   
@@ -12,13 +14,15 @@ export default function RadarSignalCard({ signal, onConfirmEntry }) {
   const glowClass = (signal.ai_stars || 4) >= 5 ? 'card-glow-gold' : '';
 
   const handleAskAI = () => {
-    window.dispatchEvent(new CustomEvent('open-ai-chat', {
-      detail: {
-        symbol: signal.symbol,
-        name: signal.name,
-        price: signal.current_price
+    navigate('/chat', {
+      state: {
+        stockContext: {
+          symbol: signal.symbol,
+          name: signal.name,
+          price: signal.current_price
+        }
       }
-    }));
+    });
   };
 
   return (

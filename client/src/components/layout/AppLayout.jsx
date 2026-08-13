@@ -1,25 +1,8 @@
-import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import AIChatModal from '../common/AIChatModal';
 import BottomNavigation from './BottomNavigation';
 
 export default function AppLayout({ children }) {
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [stockContext, setStockContext] = useState(null);
-
-  useEffect(() => {
-    const handleOpenChat = (e) => {
-      if (e.detail) {
-        setStockContext(e.detail);
-      }
-      setIsChatOpen(true);
-    };
-
-    window.addEventListener('open-ai-chat', handleOpenChat);
-    return () => window.removeEventListener('open-ai-chat', handleOpenChat);
-  }, []);
-
   return (
     <div className="flex bg-[var(--bg-primary)] min-h-screen relative">
       <Sidebar />
@@ -31,13 +14,6 @@ export default function AppLayout({ children }) {
       </div>
 
       <BottomNavigation />
-
-      {/* AI Chatbox Modal */}
-      <AIChatModal 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-        stockContext={stockContext}
-      />
     </div>
   );
 }
