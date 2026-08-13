@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Bot, Send, Trash2, Sparkles, TrendingUp, ShieldAlert, FileText, ArrowRight, User } from 'lucide-react';
+import './ChatPage.css';
 
 export default function ChatPage() {
   const location = useLocation();
@@ -116,31 +117,31 @@ export default function ChatPage() {
     { label: `🚀 這檔適合追高或分批進場嗎？`, text: `請問 ${stockContext.symbol} 現在的價位適合追高或分批佈局嗎？` },
     { label: `🎯 建議的停損與停利點位`, text: `若我現在進場 ${stockContext.symbol}，建議的嚴格停損價格與目標停利價格是多少？` }
   ] : [
-    { label: "🛡️ 某檔爆量飆股現在做空安全嗎？", text: "如果一檔中 শক্তিশালী股今天爆量大漲，現在做空安全嗎？有哪些融券回補或拉高洗盤風險？" },
+    { label: "🛡️ 某檔爆量飆股現在做空安全嗎？", text: "如果一檔中小型股今天爆量大漲，現在做空安全嗎？有哪些融券回補或拉高洗盤風險？" },
     { label: "📰 收到 4 星利多推播後如何二次確認？", text: "收到系統的 4 星進場推播通知後，我在下單前應該做哪些技術線型與籌碼的二次確認？" },
     { label: "📊 分析今日台股大盤趨勢與操作避坑指南", text: "請分析當前台股大盤的整體趨勢，以及現階段操作台股最需要注意的坑與風險控管重點。" },
     { label: "📉 股票被套牢跌破5日線該如何處置？", text: "如果持有的股票跌破5日均線(MA5)且帳面虧損，建議如何制定停損紀律？" }
   ];
 
   return (
-    <div className="w-full h-[calc(100dvh-60px)] md:h-screen flex flex-col bg-white md:bg-[var(--bg-primary)]">
-      <div className="w-full h-full max-w-4xl mx-auto flex flex-col md:border-x border-[var(--card-border)] bg-white md:bg-[var(--card-bg)] shadow-sm relative z-10">
+    <div className="chat-page-container animate-fade-in">
+      <div className="chat-inner-container">
         
         {/* 對話框 Header */}
-        <div className="p-3 md:p-4 border-b border-[var(--card-border)] bg-white/95 md:bg-[var(--card-bg)] flex items-center justify-between shrink-0 sticky top-0 z-20">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
-              <Bot size={20} className="md:w-6 md:h-6" />
+        <div className="chat-header">
+          <div className="chat-header-left">
+            <div className="chat-avatar">
+              <Bot size={20} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
-                <h3 className="font-bold text-sm md:text-base text-primary truncate">AI 策略顧問</h3>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1 shrink-0"></span>
+            <div className="chat-header-text">
+              <div className="chat-title-row">
+                <h3 className="chat-title">AI 策略顧問</h3>
+                <span className="chat-tag">
+                  <span style={{width:'6px', height:'6px', borderRadius:'50%', backgroundColor:'#34d399', marginRight:'4px'}}></span>
                   Gemini 在線
                 </span>
               </div>
-              <p className="text-[10px] md:text-xs text-muted truncate">即時解答個股疑慮與新聞深析</p>
+              <p className="chat-subtitle">即時解答個股疑慮與新聞深析</p>
             </div>
           </div>
 
@@ -151,7 +152,7 @@ export default function ChatPage() {
                 text: '對話已重設。請問有什麼我可以協助你的嗎？',
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               }])}
-              className="p-2 text-muted hover:text-rose-400 rounded-lg hover:bg-black/5 transition-colors"
+              className="btn btn-ghost p-2"
               title="清除聊天紀錄"
             >
               <Trash2 size={18} />
@@ -161,38 +162,30 @@ export default function ChatPage() {
 
         {/* 焦點股票標籤提示 */}
         {stockContext && (
-          <div className="px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 flex items-center justify-between text-xs text-blue-300">
+          <div style={{padding:'8px 16px', backgroundColor:'rgba(59,130,246,0.1)', borderBottom:'1px solid rgba(59,130,246,0.2)', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:'12px', color:'#60a5fa'}}>
             <div className="flex items-center gap-2">
-              <Sparkles size={14} className="text-blue-400 animate-pulse" />
+              <Sparkles size={14} className="text-blue-400" />
               <span>當前焦點：<b>{stockContext.symbol} {stockContext.name}</b> (NT$ {stockContext.price || '即時報價'})</span>
             </div>
           </div>
         )}
 
         {/* 訊息對話區 */}
-        <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
+        <div className="chat-messages">
           {messages.map((msg, idx) => (
             <div 
               key={idx} 
-              className={`flex gap-3 max-w-[88%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
+              className={`msg-wrapper ${msg.role === 'user' ? 'user' : 'model'}`}
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                msg.role === 'user' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-indigo-600/30 border border-indigo-500/30 text-indigo-300'
-              }`}>
-                {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+              <div className="chat-avatar" style={{width:'2rem', height:'2rem', borderRadius:'50%', background: msg.role==='user'?'#2563eb':'rgba(79,70,229,0.3)', border:msg.role==='user'?'none':'1px solid rgba(79,70,229,0.3)'}}>
+                {msg.role === 'user' ? <User size={16} color="white" /> : <Bot size={16} color="#a5b4fc" />}
               </div>
 
               <div className="flex flex-col gap-1">
-                <div className={`p-3.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none'
-                    : 'bg-white/5 border border-white/10 text-primary rounded-tl-none'
-                }`}>
+                <div className="msg-bubble">
                   {msg.text}
                 </div>
-                <span className={`text-[10px] text-muted px-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                <span style={{fontSize:'10px', color:'var(--text-muted)', padding:'0 4px', textAlign: msg.role === 'user' ? 'right' : 'left'}}>
                   {msg.timestamp}
                 </span>
               </div>
@@ -200,15 +193,12 @@ export default function ChatPage() {
           ))}
 
           {loading && (
-            <div className="flex gap-3 mr-auto max-w-[88%]">
-              <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 flex items-center justify-center shrink-0">
-                <Bot size={16} />
+            <div className="msg-wrapper model">
+              <div className="chat-avatar" style={{width:'2rem', height:'2rem', borderRadius:'50%', background:'rgba(79,70,229,0.3)', border:'1px solid rgba(79,70,229,0.3)'}}>
+                <Bot size={16} color="#a5b4fc" />
               </div>
-              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 rounded-tl-none flex items-center gap-2 text-muted text-sm">
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-bounce"></span>
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-bounce [animation-delay:0.2s]"></span>
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-bounce [animation-delay:0.4s]"></span>
-                <span className="ml-1 text-xs">AI 顧問正在研判大盤數據與籌碼...</span>
+              <div className="msg-bubble" style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                <span style={{fontSize:'12px'}}>AI 顧問正在研判大盤數據與籌碼...</span>
               </div>
             </div>
           )}
@@ -217,43 +207,40 @@ export default function ChatPage() {
         </div>
 
         {/* 快捷指令 Quick Prompts */}
-        <div className="p-3 bg-white/95 md:bg-black/20 flex flex-col gap-2 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] z-20 border-t border-slate-100 md:border-[var(--card-border)]">
-          <div className="text-[11px] text-slate-500 md:text-muted flex items-center gap-1 font-medium">
-            <Sparkles size={12} className="text-amber-500 md:text-amber-400" />
+        <div className="chat-quick-prompts">
+          <div className="quick-prompts-title">
+            <Sparkles size={12} color="#f59e0b" />
             <span>快捷提問推薦（點擊直接詢問）：</span>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="quick-prompts-list">
             {quickPrompts.map((qp, i) => (
               <button
                 key={i}
                 onClick={() => handleSend(qp.text)}
                 disabled={loading}
-                className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-700 transition-all flex items-center gap-1 md:bg-white/5 md:border-white/10 md:text-secondary md:hover:text-blue-300 md:hover:border-blue-500/40"
+                className="quick-prompt-btn"
               >
                 <span>{qp.label}</span>
-                <ArrowRight size={12} className="opacity-60" />
+                <ArrowRight size={12} opacity={0.6} />
               </button>
             ))}
           </div>
         </div>
 
         {/* 輸入框 Input Bar */}
-        <div 
-          className="p-3 bg-white md:bg-[var(--card-bg)] flex items-center gap-2 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.04)]"
-          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
-        >
+        <div className="chat-input-bar">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={stockContext ? `詢問關於 ${stockContext.symbol} 的任何問題...` : "輸入你的問題 (例如：這檔現在做空安全嗎？)"}
+            placeholder={stockContext ? `詢問關於 ${stockContext.symbol}...` : "輸入你的問題 (例如：這檔現在做空安全嗎？)"}
             rows="1"
-            className="input flex-1 resize-none py-3 text-sm bg-slate-100 text-slate-900 placeholder-slate-400 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 md:bg-black/30 md:text-white md:placeholder-white/40 shadow-inner rounded-xl"
+            className="chat-input"
           />
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || loading}
-            className="btn btn-primary p-3 rounded-xl shrink-0 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
+            className="btn btn-primary chat-send-btn"
           >
             <Send size={18} />
           </button>
