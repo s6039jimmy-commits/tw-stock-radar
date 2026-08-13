@@ -2,7 +2,7 @@ import { checkStopLoss, checkTakeProfit, checkMA5Break } from './priceMonitor.js
 import { scanPositionNews } from './newsMonitor.js';
 import { analyzeExit } from '../ai/geminiClient.js';
 import { getQuote } from '../fugle/marketData.js';
-import { addExitAlert, getSetting } from '../../db/database.js';
+import { addExitAlert, getSetting, exitPosition } from '../../db/database.js';
 import { sendExitAlert } from '../notify/telegram.js';
 import { logger } from '../../utils/logger.js';
 import { AI_DANGER_LEVEL_THRESHOLD } from '../../config/index.js';
@@ -135,8 +135,14 @@ export const processExitAlert = async (position, alertType, triggerData) => {
     const profitPct = ((triggerData.price - position.entry_price) / position.entry_price) * 100;
     
     addExitAlert(alert);
+    exitPosition(position.id, {
+      exit_price: triggerData.price,
+      exit_date: new Date().toISOString(),
+      exit_reason: triggerData.reason
+    });
+    
     await sendExitAlert(alert, position, profitPct);
-    logger.info('Exit Engine', `🚨 觸發出場警報 [${alertType}] ${position.symbol} @ ${triggerData.price} (損益: ${profitPct.toFixed(2)}%)`);
+    logger.info('Exit Engine', `🚨 觸發出場警報 [${alertType}] ${position.symbol} @ ${triggerData.price} (損益: ${profitPct.toFixed(2)}%)，已從監控名單移除`);
   } catch (e) {
     logger.error('Exit Engine', `處理出場警報失敗`, e);
   }
