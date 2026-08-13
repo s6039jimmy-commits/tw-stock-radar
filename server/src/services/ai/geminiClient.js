@@ -117,7 +117,7 @@ if (GEMINI_API_KEY) {
 /**
  * 分析個股進場潛力
  */
-export const analyzeEntry = async (symbol, companyName, newsItems, priceData) => {
+export const analyzeEntry = async (symbol, companyName, newsItems, priceData, revenueData = null, chipsData = null) => {
   if (!model) return null;
 
   const newsText = newsItems.map((n, i) => `${i + 1}. ${n.title || n}`).join('\n');
@@ -132,7 +132,13 @@ ${newsText}
 價量資料：
 ${priceData ? JSON.stringify(priceData, null, 2) : '暫無'}
 
-請根據以上資訊，給出 1-5 星的信心評分與詳細分析。`;
+基本面 (月營收)：
+${revenueData ? JSON.stringify(revenueData, null, 2) : '暫無'}
+
+籌碼面 (三大法人近一日買賣超)：
+${chipsData ? JSON.stringify(chipsData, null, 2) : '暫無'}
+
+請根據以上資訊（綜合新聞、價量、營收成長性與法人籌碼動向），給出 1-5 星的信心評分與詳細分析。`;
 
   try {
     const result = await model.entry.generateContent(prompt);
@@ -149,7 +155,7 @@ ${priceData ? JSON.stringify(priceData, null, 2) : '暫無'}
 /**
  * 分析持股是否應出場
  */
-export const analyzeExit = async (symbol, companyName, position, newsItems) => {
+export const analyzeExit = async (symbol, companyName, position, newsItems, revenueData = null, chipsData = null) => {
   if (!model) return null;
 
   const newsText = newsItems.map((n, i) => `${i + 1}. ${n.title || n}`).join('\n');
@@ -163,7 +169,13 @@ export const analyzeExit = async (symbol, companyName, position, newsItems) => {
 突發新聞：
 ${newsText}
 
-請判斷這些新聞是否構成出場訊號，並給出危險等級 (1-5)。`;
+基本面 (月營收)：
+${revenueData ? JSON.stringify(revenueData, null, 2) : '暫無'}
+
+籌碼面 (三大法人近一日買賣超)：
+${chipsData ? JSON.stringify(chipsData, null, 2) : '暫無'}
+
+請判斷這些新聞是否構成出場訊號，並結合營收表現與法人籌碼動向綜合評估，給出危險等級 (1-5)。若營收強勁或法人大買，可降低危險等級；若營收衰退且法人大賣，應提高危險等級。`;
 
   try {
     const result = await model.exit.generateContent(prompt);

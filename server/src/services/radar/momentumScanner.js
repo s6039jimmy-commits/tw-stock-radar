@@ -1,3 +1,5 @@
+import { getRevenueForSymbol } from '../fundamentals/revenue.js';
+import { getChipsForSymbol } from '../fundamentals/chips.js';
 import { getQuote } from '../fugle/marketData.js';
 import { fetchNewsByTicker } from '../news/cnyesNews.js';
 import { fetchNewsForStock } from '../news/googleNews.js';
@@ -75,8 +77,12 @@ export const scan = async () => {
           newsItems = [{ title: `${name} 近期無重大新聞，但技術面或籌碼面出現異常波動` }];
         }
 
-        // 取得即時報價
-        const quote = await getQuote(symbol);
+        // 取得即時報價與基本面籌碼
+        const [quote, revenue, chips] = await Promise.all([
+          getQuote(symbol),
+          getRevenueForSymbol(symbol),
+          getChipsForSymbol(symbol)
+        ]);
         
         // 過濾冷門股與水餃股 (必須有報價，且價格 > 15，成交量 > 2000張)
         const lastPrice = quote?.lastPrice || quote?.closePrice || 0;
@@ -97,7 +103,7 @@ export const scan = async () => {
         const result = await analyzeEntry(symbol, name, newsItems, {
           ...quote,
           volumeRatio
-        });
+        }, revenue, chips);
 
         if (result && result.confidence_stars) {
           const signal = {

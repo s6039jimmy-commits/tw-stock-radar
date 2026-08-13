@@ -23,6 +23,7 @@ export const connect = async () => {
       // 重新訂閱
       for (const symbol of subscriptions) {
         stock.intraday.quote({ symbol });
+        stock.intraday.trades({ symbol });
       }
     });
 
@@ -35,7 +36,11 @@ export const connect = async () => {
       try {
         const data = JSON.parse(message);
         if (data.event === 'data' && data.data) {
-          streamEmitter.emit('price-update', data.data);
+          if (data.data.size !== undefined) {
+            streamEmitter.emit('trade-update', data.data);
+          } else {
+            streamEmitter.emit('price-update', data.data);
+          }
         }
       } catch (e) {
         // 解析錯誤忽略
@@ -59,6 +64,7 @@ export const subscribe = (symbol) => {
   subscriptions.add(symbol);
   if (connected && wsClient) {
     wsClient.stock.intraday.quote({ symbol });
+    wsClient.stock.intraday.trades({ symbol });
   }
 };
 

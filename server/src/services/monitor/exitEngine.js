@@ -6,6 +6,8 @@ import { addExitAlert, getSetting } from '../../db/database.js';
 import { sendExitAlert } from '../notify/telegram.js';
 import { logger } from '../../utils/logger.js';
 import { AI_DANGER_LEVEL_THRESHOLD } from '../../config/index.js';
+import { getRevenueForSymbol } from '../fundamentals/revenue.js';
+import { getChipsForSymbol } from '../fundamentals/chips.js';
 
 /**
  * 評估單一持倉的出場條件
@@ -25,11 +27,18 @@ export const evaluatePosition = async (position) => {
     const headlines = allNews.map(n => n.title || n.主旨).filter(Boolean);
     
     if (headlines.length > 0) {
+      const [revenue, chips] = await Promise.all([
+        getRevenueForSymbol(position.symbol),
+        getChipsForSymbol(position.symbol)
+      ]);
+
       const aiResult = await analyzeExit(
         position.symbol, 
         position.name, 
         position, 
-        headlines.map(h => ({ title: h }))
+        headlines.map(h => ({ title: h })),
+        revenue,
+        chips
       );
 
       const dangerLevelThreshold = parseInt(getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);
@@ -79,11 +88,18 @@ export const evaluatePositionNewsOnly = async (position) => {
     const headlines = allNews.map(n => n.title || n.主旨).filter(Boolean);
     
     if (headlines.length > 0) {
+      const [revenue, chips] = await Promise.all([
+        getRevenueForSymbol(position.symbol),
+        getChipsForSymbol(position.symbol)
+      ]);
+
       const aiResult = await analyzeExit(
         position.symbol, 
         position.name, 
         position, 
-        headlines.map(h => ({ title: h }))
+        headlines.map(h => ({ title: h })),
+        revenue,
+        chips
       );
 
       const dangerLevelThreshold = parseInt(getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);

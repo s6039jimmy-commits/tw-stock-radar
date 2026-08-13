@@ -1,3 +1,5 @@
+import { getRevenueForSymbol } from '../fundamentals/revenue.js';
+import { getChipsForSymbol } from '../fundamentals/chips.js';
 import { BLUE_CHIP_TOP_N } from '../../config/index.js';
 import { getAllMajorAnnouncements } from '../news/twseNews.js';
 import { fetchNewsByTicker } from '../news/cnyesNews.js';
@@ -68,13 +70,19 @@ export const scan = async () => {
           newsHeadlines.push(...googleNews.slice(0, 3).map(n => n.title));
         }
 
-        // 取得即時報價
-        const quote = await getQuote(symbol);
+        // 取得即時報價與基本面籌碼
+        const [quote, revenue, chips] = await Promise.all([
+          getQuote(symbol),
+          getRevenueForSymbol(symbol),
+          getChipsForSymbol(symbol)
+        ]);
 
         // AI 分析
         const result = await analyzeEntry(symbol, data.name, 
           newsHeadlines.map(h => ({ title: h })),
-          quote
+          quote,
+          revenue,
+          chips
         );
 
         if (result && result.confidence_stars) {
