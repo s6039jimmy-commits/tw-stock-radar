@@ -84,7 +84,7 @@ export const scan = async () => {
             signal_type: 'BLUE_CHIP',
             ai_stars: result.confidence_stars,
             ai_sentiment: result.sentiment,
-            ai_reasoning: result.reasoning,
+            ai_reasoning: `${result.catalyst || ''}\n\n📍 操作建議：${result.action_plan || ''}`,
             news_headline: newsHeadlines[0] || '',
             current_price: quote?.lastPrice || quote?.closePrice || 0,
             volume_ratio: 1.0
