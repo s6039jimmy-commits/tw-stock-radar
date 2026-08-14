@@ -76,13 +76,13 @@ export default function RadarPage() {
             更新
           </button>
           <button
-            className="btn btn-primary flex items-center gap-2"
+            className="btn btn-primary flex items-center gap-2 whitespace-nowrap"
             onClick={handleScan}
             disabled={isScanning}
           >
             {isScanning
-              ? <><Loader2 size={16} className="animate-spin" /><span>AI 分析中 (約90秒)...</span></>
-              : <><Search size={16} /><span>手動觸發全市場掃描</span></>
+              ? <><Loader2 size={16} className="animate-spin" /><span>掃描中...</span></>
+              : <><Search size={16} /><span>立即掃描</span></>
             }
           </button>
         </div>
