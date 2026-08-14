@@ -3,6 +3,7 @@ import { getMarketSnapshot } from '../fugle/marketData.js';
 import { getChipsForSymbol } from '../fundamentals/chips.js';
 import { fetchNewsByTicker } from '../news/cnyesNews.js';
 import { getBot } from '../notify/telegram.js';
+import { setSetting } from '../../db/database.js';
 
 /**
  * 盤後選股掃描器
@@ -96,7 +97,12 @@ export const runPostMarketScan = async () => {
       }
     }
 
-    // 4. 發送 Telegram 盤後自選股清單
+    // 4. 存入資料庫 settings，供明天 08:30 早報讀取
+    setSetting('TOMORROW_WATCHLIST', JSON.stringify(watchlist));
+    setSetting('TOMORROW_WATCHLIST_DATE', new Date().toISOString().split('T')[0]);
+    logger.info('PostMarket', `✅ 明日自選股清單已儲存 (${watchlist.length} 檔)`);
+
+    // 5. 發送 Telegram 盤後自選股清單
     await sendWatchlistReport(watchlist);
 
   } catch (e) {
