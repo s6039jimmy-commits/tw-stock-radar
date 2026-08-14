@@ -9,6 +9,7 @@
   "dependencies": {
     "@fugle/marketdata": "^1.4.2",
     "@google/generative-ai": "^0.24.0",
+    "@supabase/supabase-js": "^2.112.3",
     "axios": "^1.7.0",
     "cheerio": "^1.2.0",
     "cors": "^2.8.5",

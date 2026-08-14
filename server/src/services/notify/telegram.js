@@ -31,7 +31,7 @@ export const getBot = (overrideToken = null) => {
             const name = parts.slice(4).join(':'); // The rest is name
             
             try {
-              addPosition({
+              await addPosition({
                 symbol,
                 name: name || symbol,
                 entry_price: price,
@@ -93,12 +93,12 @@ export const sendEntrySignal = async (signal) => {
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const savedDate = getSetting('DAILY_PUSH_DATE');
-  let pushCount = parseInt(getSetting('DAILY_PUSH_COUNT') || '0', 10);
+  const savedDate = await getSetting('DAILY_PUSH_DATE');
+  let pushCount = parseInt(await getSetting('DAILY_PUSH_COUNT') || '0', 10);
   
   if (savedDate !== today) {
     pushCount = 0;
-    setSetting('DAILY_PUSH_DATE', today);
+    await setSetting('DAILY_PUSH_DATE', today);
   }
 
   if (pushCount >= 1) {
@@ -147,7 +147,7 @@ export const sendEntrySignal = async (signal) => {
   
   const success = await sendHTML(html, markup);
   if (success) {
-    setSetting('DAILY_PUSH_COUNT', (pushCount + 1).toString());
+    await setSetting('DAILY_PUSH_COUNT', (pushCount + 1).toString());
   }
   return success;
 };

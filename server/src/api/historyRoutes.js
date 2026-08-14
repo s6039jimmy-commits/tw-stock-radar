@@ -3,12 +3,12 @@ import { getTradeHistory, getTradeStats } from '../db/database.js';
 
 const router = Router();
 
-router.get('/trades', (req, res) => {
-  res.json({ success: true, data: getTradeHistory() });
+router.get('/trades', async (req, res) => {
+  res.json({ success: true, data: await getTradeHistory() });
 });
 
-router.get('/stats', (req, res) => {
-  res.json({ success: true, data: getTradeStats() });
+router.get('/stats', async (req, res) => {
+  res.json({ success: true, data: await getTradeStats() });
 });
 
 export default router;

@@ -41,7 +41,7 @@ export const evaluatePosition = async (position) => {
         chips
       );
 
-      const dangerLevelThreshold = parseInt(getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);
+      const dangerLevelThreshold = parseInt(await getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);
       if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= dangerLevelThreshold) {
         return processExitAlert(position, 'NEWS_EXIT', {
           price: currentPrice,
@@ -102,7 +102,7 @@ export const evaluatePositionNewsOnly = async (position) => {
         chips
       );
 
-      const dangerLevelThreshold = parseInt(getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);
+      const dangerLevelThreshold = parseInt(await getSetting('AI_DANGER_LEVEL_THRESHOLD') || AI_DANGER_LEVEL_THRESHOLD || '4', 10);
       if (aiResult && aiResult.is_exit_signal && aiResult.danger_level >= dangerLevelThreshold) {
         return processExitAlert(position, 'PRE_MARKET_EXIT', {
           price: position.current_price || position.entry_price, // 盤前可能無最新報價，用現有價
@@ -134,8 +134,8 @@ export const processExitAlert = async (position, alertType, triggerData) => {
   try {
     const profitPct = ((triggerData.price - position.entry_price) / position.entry_price) * 100;
     
-    addExitAlert(alert);
-    exitPosition(position.id, {
+    await addExitAlert(alert);
+    await exitPosition(position.id, {
       exit_price: triggerData.price,
       exit_date: new Date().toISOString(),
       exit_reason: triggerData.reason

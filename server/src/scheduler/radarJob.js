@@ -29,7 +29,7 @@ export const runNightScan = async () => {
 export const runPostMarketSummary = async () => {
   logger.info('Scheduler', '執行盤後統計總結...');
   try {
-    const stats = getTradeStats();
+    const stats = await getTradeStats();
     await sendDailySummary(stats);
   } catch (e) {
     logger.error('Scheduler', '發送盤後總結失敗', e);

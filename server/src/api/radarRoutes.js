@@ -4,20 +4,20 @@ import { runBlueChipScan, runMomentumScan } from '../scheduler/radarJob.js';
 
 const router = Router();
 
-router.get('/signals', (req, res) => {
+router.get('/signals', async (req, res) => {
   const type = req.query.type;
-  let signals = getRadarSignals();
+  let signals = await getRadarSignals();
   if (type) signals = signals.filter(s => s.signal_type === type.toUpperCase());
   res.json({ success: true, data: signals });
 });
 
-router.get('/signals/:type', (req, res) => {
+router.get('/signals/:type', async (req, res) => {
   const type = req.params.type;
-  const signals = getRadarSignals().filter(s => s.signal_type === type.toUpperCase());
+  const signals = await getRadarSignals().filter(s => s.signal_type === type.toUpperCase());
   res.json({ success: true, data: signals });
 });
 
-router.post('/scan', (req, res) => {
+router.post('/scan', async (req, res) => {
   const { type } = req.body;
   // 異步執行，不阻塞 HTTP 回應
   if (type === 'blue_chip' || type === 'all') runBlueChipScan().catch(e => console.error(e));

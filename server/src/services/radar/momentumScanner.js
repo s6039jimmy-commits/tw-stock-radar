@@ -107,7 +107,7 @@ export const scan = async () => {
           signals.push(signal);
 
           // 寫入資料庫
-          addRadarSignal(signal);
+          await addRadarSignal(signal);
 
           // 推播通知 (3顆星以上才傳送 Telegram)
           if (result.confidence_stars >= 3) {

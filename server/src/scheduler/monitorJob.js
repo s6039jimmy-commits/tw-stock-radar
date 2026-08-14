@@ -7,7 +7,7 @@ import { connect, disconnect } from '../services/fugle/streaming.js';
 import { logger } from '../utils/logger.js';
 
 export const runPriceCheck = async () => {
-  const positions = getActivePositions();
+  const positions = await getActivePositions();
   for (const p of positions) {
     await evaluatePosition(p);
   }
@@ -20,7 +20,7 @@ export const runNewsCheck = async () => {
 // 盤前專用掃描：針對所有庫存，檢查是否有突發利空
 export const runPreMarketNewsCheck = async () => {
   logger.info('Scheduler', '開始執行盤前新聞預警掃描...');
-  const positions = getActivePositions();
+  const positions = await getActivePositions();
   for (const p of positions) {
     await evaluatePositionNewsOnly(p);
   }
@@ -36,7 +36,7 @@ export const startMonitorJobs = () => {
 
   // 動態檢查盤前預警時間 (每分鐘檢查一次)
   cron.schedule('* * * * 1-5', () => {
-    const timeStr = getSetting('PRE_MARKET_SCAN_TIME') || PRE_MARKET_SCAN_TIME || '08:45';
+    const timeStr = await getSetting('PRE_MARKET_SCAN_TIME') || PRE_MARKET_SCAN_TIME || '08:45';
     const [hh, mm] = timeStr.split(':');
     const now = new Date();
     

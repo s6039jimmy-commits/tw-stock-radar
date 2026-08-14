@@ -20,7 +20,7 @@ export const initTickMonitor = () => {
       const value = price * size;
       
       // 只處理監控中的持倉
-      const positions = getActivePositions();
+      const positions = await getActivePositions();
       const position = positions.find(p => p.symbol === symbol);
       if (!position) return;
 

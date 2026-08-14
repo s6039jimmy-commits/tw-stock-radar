@@ -9,8 +9,8 @@ export const generatePreMarketReport = async () => {
 
   try {
     // 1. 讀取昨天盤後選好的自選股清單
-    const watchlistRaw = getSetting('TOMORROW_WATCHLIST');
-    const watchlistDate = getSetting('TOMORROW_WATCHLIST_DATE');
+    const watchlistRaw = await getSetting('TOMORROW_WATCHLIST');
+    const watchlistDate = await getSetting('TOMORROW_WATCHLIST_DATE');
     let watchlist = [];
     if (watchlistRaw) {
       try { watchlist = JSON.parse(watchlistRaw); } catch (_) {}

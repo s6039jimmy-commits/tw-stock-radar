@@ -83,8 +83,8 @@ ${newsText}
   html += `<pre>${marketSummary}</pre>\n\n`;
 
   // 持倉績效
-  const positions = getActivePositions();
-  const stats = getTradeStats();
+  const positions = await getActivePositions();
+  const stats = await getTradeStats();
 
   if (positions.length === 0) {
     html += `<b>📌 持倉：</b> 目前無持倉，空手觀望中。\n`;
@@ -133,7 +133,7 @@ const buildTomorrowWatchlist = async () => {
 
     if (allStocks.length === 0) {
       logger.warn('PostMarket', '無法取得市場快照，跳過選股');
-      setSetting('TOMORROW_WATCHLIST', JSON.stringify([]));
+      await setSetting('TOMORROW_WATCHLIST', JSON.stringify([]));
       return;
     }
 
@@ -205,8 +205,8 @@ const buildTomorrowWatchlist = async () => {
     }
 
     // 儲存到資料庫，供 08:30 早報讀取
-    setSetting('TOMORROW_WATCHLIST', JSON.stringify(watchlist));
-    setSetting('TOMORROW_WATCHLIST_DATE', new Date().toISOString().split('T')[0]);
+    await setSetting('TOMORROW_WATCHLIST', JSON.stringify(watchlist));
+    await setSetting('TOMORROW_WATCHLIST_DATE', new Date().toISOString().split('T')[0]);
     logger.info('PostMarket', `✅ 明日 5 星自選股：${watchlist.length} 檔`);
 
     // 發送盤後通知

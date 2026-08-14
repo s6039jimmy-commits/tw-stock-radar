@@ -3,22 +3,22 @@ import { getActivePositions, addPosition, updatePosition, exitPosition, getExitA
 
 const router = Router();
 
-router.get('/positions', (req, res) => {
-  res.json({ success: true, data: getActivePositions() });
+router.get('/positions', async (req, res) => {
+  res.json({ success: true, data: await getActivePositions() });
 });
 
 import { evaluatePosition, evaluatePositionNewsOnly } from '../services/monitor/exitEngine.js';
 import { isMarketOpen } from '../utils/helpers.js';
 
-router.post('/positions', (req, res) => {
+router.post('/positions', async (req, res) => {
   const data = req.body;
-  const result = addPosition(data);
+  const result = await addPosition(data);
   const newId = result.lastInsertRowid;
 
   // 新增持倉後立刻觸發健康檢查（背景非同步執行）
   setTimeout(async () => {
     try {
-      const positions = getActivePositions();
+      const positions = await getActivePositions();
       const pos = positions.find(p => p.id === newId);
       if (pos) {
         if (isMarketOpen()) {
@@ -35,18 +35,18 @@ router.post('/positions', (req, res) => {
   res.json({ success: true, id: newId });
 });
 
-router.patch('/positions/:id', (req, res) => {
-  updatePosition(req.params.id, req.body);
+router.patch('/positions/:id', async (req, res) => {
+  await updatePosition(req.params.id, req.body);
   res.json({ success: true });
 });
 
-router.post('/positions/:id/exit', (req, res) => {
-  exitPosition(req.params.id, req.body);
+router.post('/positions/:id/exit', async (req, res) => {
+  await exitPosition(req.params.id, req.body);
   res.json({ success: true });
 });
 
-router.get('/alerts', (req, res) => {
-  res.json({ success: true, data: getExitAlerts() });
+router.get('/alerts', async (req, res) => {
+  res.json({ success: true, data: await getExitAlerts() });
 });
 
 export default router;

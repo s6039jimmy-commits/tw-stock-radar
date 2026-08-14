@@ -53,7 +53,7 @@ export const scanNightSession = async () => {
     // 判斷是否大漲或大跌超過 2%
     if (Math.abs(changePct) >= 2.0) {
       const alertKey = `NIGHT_ALERT_${ticker}_${today}`;
-      const hasAlerted = getSetting(alertKey);
+      const hasAlerted = await getSetting(alertKey);
       
       if (!hasAlerted) {
         logger.info('Night Scanner', `🚨 發現夜盤劇烈波動: ${info.name} (${ticker}) ${changePct > 0 ? '+' : ''}${changePct}%`);
@@ -70,7 +70,7 @@ export const scanNightSession = async () => {
           current_price: 0,
           volume_ratio: 0
         };
-        addRadarSignal(signal);
+        await addRadarSignal(signal);
 
         // 獨立推送邏輯
         const { getBot } = await import('../notify/telegram.js');
@@ -91,7 +91,7 @@ export const scanNightSession = async () => {
           
           try {
             await bot.sendMessage(chatId, html, { parse_mode: 'HTML' });
-            setSetting(alertKey, 'true');
+            await setSetting(alertKey, 'true');
           } catch (e) {
             logger.error('Night Scanner', 'Telegram 推播失敗', e);
           }

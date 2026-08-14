@@ -10,6 +10,8 @@ export const FUGLE_API_KEY = process.env.FUGLE_API_KEY || '';
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+export const SUPABASE_URL = process.env.SUPABASE_URL || '';
+export const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
 // 交易參數 (預設值)
 export const AI_DANGER_LEVEL_THRESHOLD = parseInt(process.env.AI_DANGER_LEVEL_THRESHOLD || '4');
