@@ -207,52 +207,9 @@ const buildTomorrowWatchlist = async () => {
     // 儲存到資料庫，供 08:30 早報讀取
     await setSetting('TOMORROW_WATCHLIST', JSON.stringify(watchlist));
     await setSetting('TOMORROW_WATCHLIST_DATE', new Date().toISOString().split('T')[0]);
-    logger.info('PostMarket', `✅ 明日 5 星自選股：${watchlist.length} 檔`);
-
-    // 發送盤後通知
-    await sendWatchlistReport(watchlist);
+    logger.info('PostMarket', `✅ 明日 5 星自選股：${watchlist.length} 檔 (已儲存，將於明早 08:30 發送)`);
 
   } catch (e) {
     logger.error('PostMarket', '盤後 AI 選股失敗', e);
-  }
-};
-
-const sendWatchlistReport = async (watchlist) => {
-  const bot = getBot();
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!bot || !chatId) return;
-
-  const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
-
-  if (watchlist.length === 0) {
-    await bot.sendMessage(chatId,
-      `⭐ <b>明日 AI 5 星進場清單 — ${today}</b>\n\n😴 今日全市場無股票通過 AI 5 星嚴格審核。\n\n空手等機會，別勉強進場。`,
-      { parse_mode: 'HTML' }
-    ).catch(() => {});
-    return;
-  }
-
-  let html = `⭐ <b>明日 AI 5 星進場清單 — ${today}</b>\n`;
-  html += `<i>以下股票已通過「量化初篩 + AI 5 星審核」，明天 09:00 前可考慮掛單</i>\n\n`;
-
-  for (let i = 0; i < watchlist.length; i++) {
-    const s = watchlist[i];
-    html += `<b>${i + 1}. ${s.symbol} ${s.name}</b> ⭐⭐⭐⭐⭐\n`;
-    html += `   今日收盤：<code>NT$ ${s.closePrice}</code>  漲幅：<code>+${s.changeP}%</code>  量：<code>${s.volume}張</code>\n`;
-    html += `   籌碼：${s.chipsScore}\n`;
-    html += `   AI 理由：<i>${s.aiReasoning}</i>\n`;
-    html += `   ——————————\n`;
-    html += `   進場價：<code>NT$ ${s.suggestBuy}</code>（開盤站穩才追）\n`;
-    html += `   🛡 停損：<code>NT$ ${s.stopLoss}</code> (-7%)\n`;
-    html += `   🎯 目標：<code>NT$ ${s.target}</code> (+15%)\n\n`;
-  }
-
-  html += `⚠️ <i>投資盈虧自負，進場請設好停損！</i>`;
-
-  try {
-    await bot.sendMessage(chatId, html, { parse_mode: 'HTML' });
-    logger.info('PostMarket', `✅ 明日 5 星清單已發送 (${watchlist.length} 檔)`);
-  } catch (e) {
-    logger.error('PostMarket', '發送清單失敗: ' + e.message);
   }
 };

@@ -63,6 +63,7 @@ export const generatePreMarketReport = async () => {
     await bot.sendMessage(chatId, htmlMarket, { parse_mode: 'HTML' });
 
     // --- 第二則：今日進場清單（最重要！）---
+    // 依照使用者要求：有 5 星的話才要，沒有的話就不要發送廢話
     if (watchlist && watchlist.length > 0) {
       let htmlWatchlist = `🎯 <b>今日開盤進場清單</b>\n`;
       htmlWatchlist += `<i>以下為昨日盤後選出的強勢股，請在 09:00 前評估是否掛單！</i>\n\n`;
@@ -83,11 +84,6 @@ export const generatePreMarketReport = async () => {
 
       await bot.sendMessage(chatId, htmlWatchlist, { parse_mode: 'HTML' });
       logger.info('PreMarket', `✅ 今日進場清單已發送 (${watchlist.length} 檔)`);
-    } else {
-      await bot.sendMessage(chatId,
-        `🎯 <b>今日開盤進場清單</b>\n\n😴 昨日無符合條件的強勢股，今天建議空手觀望。\n\n<i>等待下午 14:05 盤後系統自動篩選明日清單。</i>`,
-        { parse_mode: 'HTML' }
-      );
     }
 
     logger.info('PreMarket', '✅ 晨間早報已發送');
