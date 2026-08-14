@@ -13,7 +13,7 @@ const DUMP_ALERT_THRESHOLD = -50000000; // 淨賣出門檻 -5000 萬台幣 (觸�
 const RESET_INTERVAL = 5 * 60 * 1000; // 5 分鐘歸零重計 (滾動窗口)
 
 export const initTickMonitor = () => {
-  streamEmitter.on('trade-update', (data) => {
+  streamEmitter.on('trade-update', async (data) => {
     try {
       const { symbol, price, size, bid, ask } = data;
       // size 是股數, 計算此筆成交金額

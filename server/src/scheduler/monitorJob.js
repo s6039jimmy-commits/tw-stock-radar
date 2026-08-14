@@ -35,7 +35,7 @@ export const startMonitorJobs = () => {
   });
 
   // 動態檢查盤前預警時間 (每分鐘檢查一次)
-  cron.schedule('* * * * 1-5', () => {
+  cron.schedule('* * * * 1-5', async () => {
     const timeStr = await getSetting('PRE_MARKET_SCAN_TIME') || PRE_MARKET_SCAN_TIME || '08:45';
     const [hh, mm] = timeStr.split(':');
     const now = new Date();
