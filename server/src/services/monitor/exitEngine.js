@@ -51,25 +51,30 @@ export const evaluatePosition = async (position) => {
       }
     }
 
-    // 2. 停損檢查
+    // 根據您的要求，已經將「死板的 -7% 停損與 +15% 停利」功能拔除。
+    // 只有在上方「遇到真正重大利空新聞」或 TickMonitor「主力大筆倒貨」時才會跑！
+
+    /* 
+    // 2. 停損檢查 (已拔除)
     const sl = checkStopLoss(position, currentPrice);
     if (sl.triggered) {
       return processExitAlert(position, 'STOP_LOSS', { price: currentPrice, reason: sl.reason });
     }
 
-    // 3. 停利檢查
+    // 3. 停利檢查 (已拔除)
     const tp = checkTakeProfit(position, currentPrice);
     if (tp.triggered) {
       return processExitAlert(position, 'TAKE_PROFIT', { price: currentPrice, reason: tp.reason });
     }
 
-    // 4. MA5 跌破檢查
+    // 4. MA5 跌破檢查 (已拔除)
     if (position.ma5_exit) {
       const ma5 = await checkMA5Break(position);
       if (ma5.triggered) {
         return processExitAlert(position, 'MA5_BREAK', { price: currentPrice, reason: ma5.reason });
       }
     }
+    */
 
     return null;
   } catch (e) {
