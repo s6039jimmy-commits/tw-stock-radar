@@ -27,53 +27,94 @@ export const runPostMarketScan = async () => {
 // 任務一：今日績效會報
 // ─────────────────────────────────────
 const sendDailyPerformanceReport = async () => {
-  logger.info('PostMarket', '📋 產生今日持倉績效會報...');
+  logger.info('PostMarket', '📋 產生今日盤後總結...');
   const bot = getBot();
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!bot || !chatId) return;
 
   const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
+
+  // ── 1. 抓今日大盤資料 + 熱門新聞 ──
+  let marketSummary = '';
+  try {
+    const { fetchLatestStockNews } = await import('../news/cnyesNews.js');
+    const { getQuote } = await import('../fugle/marketData.js');
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+
+    const [tseQuote, otcQuote, news] = await Promise.all([
+      getQuote('IX0001'),
+      getQuote('IX0043'),
+      fetchLatestStockNews(8)
+    ]);
+
+    const tseChange = tseQuote?.changePercent || tseQuote?.change || 0;
+    const otcChange = otcQuote?.changePercent || otcQuote?.change || 0;
+    const newsText = news.map((n, i) => `${i + 1}. ${n.title}`).join('\n');
+
+    // 用 AI 生成今日市場總結
+    if (process.env.GEMINI_API_KEY) {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+      const prompt = `你是台股資深分析師，今天台股已收盤。
+加權指數漲跌：${tseChange > 0 ? '+' : ''}${tseChange}%，櫃買指數：${otcChange > 0 ? '+' : ''}${otcChange}%
+
+今日重點新聞：
+${newsText}
+
+請用 150 字以內的白話文，寫出：
+1. 今天大盤的整體方向與原因（例如：哪類股強、哪類股弱、外資動向）
+2. 明天開盤要注意什麼風險或機會
+語氣精準有力，直接給結論。`;
+
+      const res = await model.generateContent(prompt);
+      marketSummary = res.response.text();
+    }
+  } catch (e) {
+    logger.warn('PostMarket', `市場總結生成失敗: ${e.message}`);
+    marketSummary = '今日市場資料取得失敗，請自行查閱財經媒體。';
+  }
+
+  // ── 2. 建立報告 ──
+  let html = `📊 <b>今日盤後總結 — ${today}</b>\n\n`;
+
+  // 市場方向 AI 總結
+  html += `<b>🤖 今日市場總結：</b>\n`;
+  html += `<pre>${marketSummary}</pre>\n\n`;
+
+  // 持倉績效
   const positions = getActivePositions();
   const stats = getTradeStats();
 
-  let html = `📊 <b>今日收盤績效會報 — ${today}</b>\n\n`;
-
   if (positions.length === 0) {
-    html += `目前無持倉監控中。\n`;
+    html += `<b>📌 持倉：</b> 目前無持倉，空手觀望中。\n`;
   } else {
-    html += `<b>📌 監控中持倉（${positions.length} 檔）：</b>\n\n`;
-
+    html += `<b>📌 監控中持倉（${positions.length} 檔）：</b>\n`;
     for (const pos of positions) {
       try {
+        const { getQuote } = await import('../fugle/marketData.js');
         const quote = await getQuote(pos.symbol);
         const currentPrice = quote?.lastPrice || quote?.closePrice || pos.entry_price;
         const pnlPct = ((currentPrice - pos.entry_price) / pos.entry_price) * 100;
         const pnlSign = pnlPct >= 0 ? '+' : '';
         const emoji = pnlPct >= 5 ? '🚀' : pnlPct >= 0 ? '🟢' : pnlPct >= -4 ? '🟡' : '🔴';
-
-        html += `${emoji} <b>${pos.symbol} ${pos.name}</b>\n`;
-        html += `   進場：<code>NT$ ${pos.entry_price}</code>　收盤：<code>NT$ ${currentPrice}</code>\n`;
-        html += `   損益：<code>${pnlSign}${pnlPct.toFixed(2)}%</code>`;
-        if (pnlPct <= -5) html += `　⚠️ 接近停損 (-7%)`;
-        if (pnlPct >= 12) html += `　🎯 接近目標 (+15%)`;
-        html += `\n\n`;
+        html += `${emoji} <b>${pos.symbol} ${pos.name}</b>  進場 <code>NT$${pos.entry_price}</code> → 今收 <code>NT$${currentPrice}</code>  <code>${pnlSign}${pnlPct.toFixed(2)}%</code>`;
+        if (pnlPct <= -5) html += ` ⚠️ 接近停損`;
+        if (pnlPct >= 12) html += ` 🎯 接近目標`;
+        html += `\n`;
       } catch (e) {
-        html += `⚪ <b>${pos.symbol} ${pos.name}</b> — 今日報價取得失敗\n\n`;
+        html += `⚪ <b>${pos.symbol} ${pos.name}</b> — 報價取得失敗\n`;
       }
     }
   }
 
-  // 歷史統計
-  html += `<b>📈 系統累積績效：</b>\n`;
-  html += `   總交易：<code>${stats.totalTrades}</code> 筆　`;
-  html += `勝率：<code>${stats.winRate}%</code>　`;
-  html += `平均損益：<code>${stats.avgProfitPct > 0 ? '+' : ''}${stats.avgProfitPct}%</code>\n`;
+  html += `\n<b>📈 系統累積：</b> 總交易 <code>${stats.totalTrades}</code> 筆　勝率 <code>${stats.winRate}%</code>　平均損益 <code>${stats.avgProfitPct > 0 ? '+' : ''}${stats.avgProfitPct}%</code>`;
 
   try {
     await bot.sendMessage(chatId, html, { parse_mode: 'HTML' });
-    logger.info('PostMarket', '✅ 今日績效會報已發送');
+    logger.info('PostMarket', '✅ 今日盤後總結已發送');
   } catch (e) {
-    logger.error('PostMarket', '發送績效會報失敗: ' + e.message);
+    logger.error('PostMarket', '發送盤後總結失敗: ' + e.message);
   }
 };
 
