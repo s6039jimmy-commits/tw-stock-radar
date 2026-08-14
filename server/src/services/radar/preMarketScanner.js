@@ -68,6 +68,7 @@ export const generatePreMarketReport = async () => {
       let htmlWatchlist = `🎯 <b>今日開盤進場清單</b>\n`;
       htmlWatchlist += `<i>以下為昨日盤後選出的強勢股，請在 09:00 前評估是否掛單！</i>\n\n`;
 
+      const inlineKeyboard = [];
       for (let i = 0; i < watchlist.length; i++) {
         const s = watchlist[i];
         htmlWatchlist += `<b>${i + 1}. ${s.symbol} ${s.name}</b>\n`;
@@ -79,10 +80,17 @@ export const generatePreMarketReport = async () => {
         htmlWatchlist += `   進場價：<code>NT$ ${s.suggestBuy}</code>（開盤不破此價再買）\n`;
         htmlWatchlist += `   🛡 停損：<code>NT$ ${s.stopLoss}</code>\n`;
         htmlWatchlist += `   🎯 目標：<code>NT$ ${s.target}</code>\n\n`;
+
+        // 建立按鈕
+        const callbackData = `ENTER:${s.symbol}:${s.suggestBuy}:5:${s.name}`.substring(0, 64);
+        inlineKeyboard.push([{ text: `✅ 我要進場 ${s.symbol} (加入監控)`, callback_data: callbackData }]);
       }
       htmlWatchlist += `⚠️ <i>投資盈虧自負，請務必設好停損！</i>`;
 
-      await bot.sendMessage(chatId, htmlWatchlist, { parse_mode: 'HTML' });
+      await bot.sendMessage(chatId, htmlWatchlist, { 
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: inlineKeyboard }
+      });
       logger.info('PreMarket', `✅ 今日進場清單已發送 (${watchlist.length} 檔)`);
     }
 
