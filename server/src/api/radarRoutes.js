@@ -17,11 +17,12 @@ router.get('/signals/:type', (req, res) => {
   res.json({ success: true, data: signals });
 });
 
-router.post('/scan', async (req, res) => {
+router.post('/scan', (req, res) => {
   const { type } = req.body;
-  if (type === 'blue_chip' || type === 'all') await runBlueChipScan();
-  if (type === 'momentum' || type === 'all') await runMomentumScan();
-  res.json({ success: true, message: 'Scan triggered' });
+  // 異步執行，不阻塞 HTTP 回應
+  if (type === 'blue_chip' || type === 'all') runBlueChipScan().catch(e => console.error(e));
+  if (type === 'momentum' || type === 'all') runMomentumScan().catch(e => console.error(e));
+  res.json({ success: true, message: 'Scan triggered in background' });
 });
 
 export default router;
