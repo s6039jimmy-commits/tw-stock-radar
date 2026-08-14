@@ -9,9 +9,11 @@ const fetchTwseChips = async () => {
   try {
     const res = await fetch('https://openapi.twse.com.tw/v1/fund/T86');
     if (!res.ok) return [];
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) return [];
     return await res.json();
   } catch (e) {
-    logger.error('Chips', '上市三大法人抓取失敗', e);
+    logger.error('Chips', '上市三大法人抓取失敗', e.message);
     return [];
   }
 };
@@ -20,9 +22,11 @@ const fetchTpexChips = async () => {
   try {
     const res = await fetch('https://www.tpex.org.tw/openapi/v1/tpex_38');
     if (!res.ok) return [];
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) return [];
     return await res.json();
   } catch (e) {
-    logger.error('Chips', '上櫃三大法人抓取失敗', e);
+    logger.error('Chips', '上櫃三大法人抓取失敗', e.message);
     return [];
   }
 };
