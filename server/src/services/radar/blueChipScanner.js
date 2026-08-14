@@ -31,43 +31,40 @@ export const scan = async () => {
   const signals = [];
 
   try {
-    // 取得所有重大訊息
+    // 取得今日重大訊息，作為補充資料
     const announcements = await getAllMajorAnnouncements();
-    
-    // 篩選出權值股的公告
-    const targetSymbols = BLUE_CHIP_SYMBOLS.slice(0, BLUE_CHIP_TOP_N);
-    const relevantAnnouncements = announcements.filter(a => 
-      targetSymbols.includes(a.公司代號?.trim())
-    );
-
-    if (relevantAnnouncements.length === 0) {
-      logger.info('BlueChip Scanner', '本次掃描未發現權值股重大訊息');
-      return signals;
-    }
-
-    // 按股票代號分組
-    const grouped = {};
-    for (const ann of relevantAnnouncements) {
+    const announcementMap = {};
+    for (const ann of announcements) {
       const sym = ann.公司代號?.trim();
-      if (!grouped[sym]) grouped[sym] = { name: ann.公司名稱?.trim(), announcements: [] };
-      grouped[sym].announcements.push(ann);
+      if (!sym) continue;
+      if (!announcementMap[sym]) announcementMap[sym] = [];
+      announcementMap[sym].push(ann.主旨 || '');
     }
 
-    // 逐一分析
-    for (const [symbol, data] of Object.entries(grouped)) {
-      try {
-        // 收集新聞
-        const newsHeadlines = data.announcements.map(a => a.主旨 || '');
-        
-        // 嘗試取得鉅亨網新聞作為補充
-        const cnyesNews = await fetchNewsByTicker(symbol, 2);
-        if (cnyesNews.length > 0) {
-          newsHeadlines.push(...cnyesNews.map(n => n.title));
-        }
+    // 永遠掃描前 N 大權值股（不管今天有沒有發新聞）
+    const targetSymbols = BLUE_CHIP_SYMBOLS.slice(0, BLUE_CHIP_TOP_N);
+    logger.info('BlueChip Scanner', `開始分析前 ${targetSymbols.length} 檔權值股...`);
 
-        const googleNews = await fetchNewsForStock(symbol, data.name);
-        if (googleNews.length > 0) {
-          newsHeadlines.push(...googleNews.slice(0, 3).map(n => n.title));
+    // 逐一分析 (一次掃 5 檔以避免太慢)
+    for (const symbol of targetSymbols.slice(0, 5)) {
+      try {
+        const name = '';
+        const annHeadlines = announcementMap[symbol] || [];
+        
+        // 收集新聞
+        const [cnyesNews, googleNewsRaw] = await Promise.all([
+          fetchNewsByTicker(symbol, 3),
+          fetchNewsForStock(symbol, symbol)
+        ]);
+
+        const newsItems = [
+          ...annHeadlines.map(h => ({ title: h })),
+          ...cnyesNews,
+          ...googleNewsRaw.slice(0, 3)
+        ];
+
+        if (newsItems.length === 0) {
+          newsItems.push({ title: `${symbol} 今日無重大新聞，分析近期技術面與籌碼面` });
         }
 
         // 取得即時報價與基本面籌碼
@@ -77,23 +74,20 @@ export const scan = async () => {
           getChipsForSymbol(symbol)
         ]);
 
+        const stockName = name || quote?.name || symbol;
+
         // AI 分析
-        const result = await analyzeEntry(symbol, data.name, 
-          newsHeadlines.map(h => ({ title: h })),
-          quote,
-          revenue,
-          chips
-        );
+        const result = await analyzeEntry(symbol, stockName, newsItems, quote, revenue, chips);
 
         if (result && result.confidence_stars) {
           const signal = {
             symbol,
-            name: result.company_name || data.name,
+            name: result.company_name || stockName,
             signal_type: 'BLUE_CHIP',
             ai_stars: result.confidence_stars,
             ai_sentiment: result.sentiment,
             ai_reasoning: `${result.catalyst || ''}\n\n📍 操作建議：${result.action_plan || ''}`,
-            news_headline: newsHeadlines[0] || '',
+            news_headline: newsItems[0]?.title || '',
             current_price: quote?.lastPrice || quote?.closePrice || 0,
             volume_ratio: 1.0
           };
@@ -103,15 +97,15 @@ export const scan = async () => {
           // 寫入資料庫
           addRadarSignal(signal);
           
-          // 推播通知 (3顆星以上才傳送 Telegram)
-          if (result.confidence_stars >= 3) {
+          // 推播通知 (5顆星才傳 Telegram)
+          if (result.confidence_stars >= 5) {
             await sendEntrySignal(signal);
           }
           
-          logger.info('BlueChip Scanner', `✨ 發現信號: ${symbol} ${data.name} - ${result.confidence_stars}星`);
+          logger.info('BlueChip Scanner', `✨ 發現信號: ${symbol} ${stockName} - ${result.confidence_stars}星`);
         }
       } catch (e) {
-        logger.error('BlueChip Scanner', `掃描 ${symbol} 失敗`, e);
+        logger.error('BlueChip Scanner', `掃描 ${symbol} 失敗`, e.message);
       }
     }
   } catch (e) {
