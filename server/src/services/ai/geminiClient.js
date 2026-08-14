@@ -115,45 +115,158 @@ if (GEMINI_API_KEY) {
 }
 
 /**
+ * ============================================================
+ * 量化評分引擎 — 硬規則決定星數，AI 只寫分析文字
+ * ============================================================
+ * 評分細則：
+ *  爆量 ≥ 3x          +25 分
+ *  爆量 ≥ 2x          +15 分（二選一）
+ *  外資買超            +20 分
+ *  投信買超            +15 分
+ *  外資+投信同步買超   +10 分（額外加乘）
+ *  月營收年增率 ≥ 20%  +20 分
+ *  月營收年增率 ≥ 10%  +10 分（二選一）
+ *  月營收月增率 ≥ 10%  +5  分
+ *  今日漲幅 ≥ 5%       +10 分
+ *  今日漲幅 ≥ 3%       +5  分（二選一）
+ *  非隔日沖主力        +5  分
+ *  隔日沖主力大買      -25 分（重大扣分）
+ *
+ *  ≥80 → 5星，65-79 → 4星，50-64 → 3星，35-49 → 2星，<35 → 1星
+ */
+export const quantitativeScore = (priceData, chipsData, revenueData, brokersData) => {
+  let score = 0;
+  const breakdown = [];
+
+  // 1. 爆量評分
+  const volumeRatio = parseFloat(priceData?.volumeRatio || priceData?.volume_ratio || 0);
+  if (volumeRatio >= 3) {
+    score += 25; breakdown.push(`爆量 ${volumeRatio.toFixed(1)}x (+25)`);
+  } else if (volumeRatio >= 2) {
+    score += 15; breakdown.push(`量增 ${volumeRatio.toFixed(1)}x (+15)`);
+  }
+
+  // 2. 法人籌碼評分
+  if (chipsData) {
+    const foreignNet = chipsData.foreign || 0;
+    const trustNet = chipsData.trust || 0;
+    if (foreignNet > 0) {
+      score += 20; breakdown.push(`外資買超 ${Math.round(foreignNet / 1000)}張 (+20)`);
+    }
+    if (trustNet > 0) {
+      score += 15; breakdown.push(`投信買超 ${Math.round(trustNet / 1000)}張 (+15)`);
+    }
+    if (foreignNet > 0 && trustNet > 0) {
+      score += 10; breakdown.push(`外資+投信同步買超 (+10)`);
+    }
+  }
+
+  // 3. 月營收評分
+  if (revenueData) {
+    const yoy = parseFloat(revenueData.yoy || revenueData.yearOverYearGrowth || 0);
+    const mom = parseFloat(revenueData.mom || revenueData.monthOverMonthGrowth || 0);
+    if (yoy >= 20) {
+      score += 20; breakdown.push(`月營收年增 +${yoy.toFixed(1)}% (+20)`);
+    } else if (yoy >= 10) {
+      score += 10; breakdown.push(`月營收年增 +${yoy.toFixed(1)}% (+10)`);
+    }
+    if (mom >= 10) {
+      score += 5; breakdown.push(`月營收月增 +${mom.toFixed(1)}% (+5)`);
+    }
+  }
+
+  // 4. 當日漲幅評分
+  const changeP = parseFloat(priceData?.changePercent || priceData?.change_percent || 0);
+  if (changeP >= 5) {
+    score += 10; breakdown.push(`今日漲幅 +${changeP.toFixed(1)}% (+10)`);
+  } else if (changeP >= 3) {
+    score += 5; breakdown.push(`今日漲幅 +${changeP.toFixed(1)}% (+5)`);
+  }
+
+  // 5. 主力分點評分（隔日沖扣分）
+  if (brokersData && brokersData.success) {
+    if (brokersData.isDayTradeRisk) {
+      score -= 25; breakdown.push(`⚠️ 隔日沖主力大買 (-25)`);
+    } else if (brokersData.topBuyers && brokersData.topBuyers.length > 0) {
+      score += 5; breakdown.push(`主力分點持續買進 (+5)`);
+    }
+  }
+
+  // 星數轉換
+  const stars = score >= 80 ? 5 : score >= 65 ? 4 : score >= 50 ? 3 : score >= 35 ? 2 : 1;
+
+  return { score, stars, breakdown };
+};
+
+/**
  * 分析個股進場潛力
+ * 星數由量化評分決定，AI 只負責寫分析文字
  */
 export const analyzeEntry = async (symbol, companyName, newsItems, priceData, revenueData = null, chipsData = null, brokersData = null) => {
-  if (!model) return null;
+  // 先用量化規則計算星數（不依賴 AI 主觀判定）
+  const quant = quantitativeScore(priceData, chipsData, revenueData, brokersData);
+  logger.info('Gemini API', `${symbol} 量化評分: ${quant.score}分 → ${quant.stars}星 | ${quant.breakdown.join(', ')}`);
 
+  // 若沒有 AI 模型，直接回傳量化結果
+  if (!model) {
+    return {
+      symbol,
+      company_name: companyName,
+      sentiment: quant.stars >= 4 ? 'BULLISH' : quant.stars <= 2 ? 'BEARISH' : 'NEUTRAL',
+      confidence_stars: quant.stars,
+      catalyst: `量化評分 ${quant.score} 分（${quant.breakdown.join(' / ')}）`,
+      action_plan: quant.stars >= 5 ? '量化條件極強，可考慮明日進場' : '量化條件不足，暫緩觀望'
+    };
+  }
+
+  // AI 負責：根據新聞與數據撰寫「引爆點」與「操作建議」文字
   const newsText = newsItems.map((n, i) => `${i + 1}. ${n.title || n}`).join('\n');
-  const prompt = `請分析以下台股的進場潛力：
+  const prompt = `你是台股短線交易員，請分析以下股票資料：
 
-股票代號：${symbol}
-公司名稱：${companyName}
+股票：${symbol} ${companyName}
+量化評分：${quant.score} 分 → ${quant.stars} 顆星
+評分明細：${quant.breakdown.join(' / ')}
 
-近期相關新聞：
+近期新聞：
 ${newsText}
 
-價量資料：
-${priceData ? JSON.stringify(priceData, null, 2) : '暫無'}
+價量：漲幅 ${priceData?.changePercent || 0}%，量比 ${priceData?.volumeRatio || 'N/A'}x
+月營收年增率：${revenueData?.yoy || revenueData?.yearOverYearGrowth || '無資料'}%
+法人：外資 ${chipsData?.foreign > 0 ? '買超' : '賣超'} / 投信 ${chipsData?.trust > 0 ? '買超' : '賣超'}
 
-基本面 (月營收)：
-${revenueData ? JSON.stringify(revenueData, null, 2) : '暫無'}
+請根據以上資料，用一句白話文寫出：
+1. catalyst（引爆點）：這檔股票為什麼今天會強？
+2. action_plan（操作建議）：明天開盤該怎麼做？
 
-籌碼面 (三大法人近一日買賣超)：
-${chipsData ? JSON.stringify(chipsData, null, 2) : '暫無'}
-
-主力分點進出 (前五大買超券商)：
-${brokersData && brokersData.success ? JSON.stringify(brokersData.topBuyers, null, 2) : '暫無'}
-
-請根據以上資訊（綜合新聞、價量、營收成長性、法人籌碼動向、主力分點有無隔日沖），給出 1-5 星的信心評分與詳細分析。若是隔日沖大戶大買，應適度降低長期看好評等或提示風險。`;
+注意：星數已由量化模型決定為 ${quant.stars} 星，你只需要寫 catalyst 和 action_plan，不需要給星數。`;
 
   try {
     const result = await model.entry.generateContent(prompt);
     const text = result.response.text();
-    const parsed = JSON.parse(text);
-    logger.info('Gemini API', `${symbol} 進場分析完成: ${parsed.confidence_stars}星 ${parsed.sentiment}`);
-    return parsed;
+    let parsed = {};
+    try { parsed = JSON.parse(text); } catch (_) {}
+
+    return {
+      symbol,
+      company_name: parsed.company_name || companyName,
+      sentiment: quant.stars >= 4 ? 'BULLISH' : quant.stars <= 2 ? 'BEARISH' : 'NEUTRAL',
+      confidence_stars: quant.stars,          // ← 永遠用量化星數，不用 AI 給的
+      catalyst: parsed.catalyst || `量化評分 ${quant.score} 分（${quant.breakdown.join(' / ')}）`,
+      action_plan: parsed.action_plan || (quant.stars >= 5 ? '量化條件極強，可考慮明日進場' : '觀望')
+    };
   } catch (error) {
-    logger.error('Gemini API', `${symbol} 進場分析失敗`, error);
-    return null;
+    logger.error('Gemini API', `${symbol} AI 文字分析失敗`, error);
+    return {
+      symbol,
+      company_name: companyName,
+      sentiment: quant.stars >= 4 ? 'BULLISH' : 'NEUTRAL',
+      confidence_stars: quant.stars,
+      catalyst: `量化評分 ${quant.score} 分（${quant.breakdown.join(' / ')}）`,
+      action_plan: quant.stars >= 5 ? '量化條件符合，可考慮明日開盤進場' : '量化條件不足，暫緩觀望'
+    };
   }
 };
+
 
 /**
  * 分析持股是否應出場
