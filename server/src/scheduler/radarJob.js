@@ -36,20 +36,22 @@ export const runPostMarketSummary = async () => {
 };
 
 export const startRadarJobs = () => {
+  const options = { timezone: 'Asia/Taipei' };
+
   // 盤中定期掃描
   cron.schedule(`*/${RADAR_SCAN_INTERVAL_MIN} * * * 1-5`, () => {
     if (isMarketOpen()) {
       runBlueChipScan();
       runMomentumScan();
     }
-  });
+  }, options);
   
   // 夜盤掃描 (15:00 到 05:00，每 15 分鐘一次)
-  cron.schedule('*/15 15-23,0-5 * * 1-5', runNightScan);
+  cron.schedule('*/15 15-23,0-5 * * 1-5', runNightScan, options);
   
   // 盤前早報 (08:30)
-  cron.schedule('30 8 * * 1-5', runPreMarketScan);
+  cron.schedule('30 8 * * 1-5', runPreMarketScan, options);
   
   // 盤後總結 (14:00)
-  cron.schedule('0 14 * * 1-5', runPostMarketSummary);
+  cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);
 };

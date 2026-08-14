@@ -23,13 +23,14 @@ export const getQuote = async (symbol, retries = 3) => {
     const data = res?.data || res || {};
     
     // Ensure all standard fields are present for scanners
+    const fallbackPrice = data.previousClose || 0;
     return {
       symbol,
-      closePrice: data.closePrice || data.lastPrice || data.close || 0,
-      lastPrice: data.lastPrice || data.closePrice || data.close || 0,
-      openPrice: data.openPrice || data.open || 0,
-      highPrice: data.highPrice || data.high || 0,
-      lowPrice: data.lowPrice || data.low || 0,
+      closePrice: data.closePrice || data.lastPrice || data.close || fallbackPrice,
+      lastPrice: data.lastPrice || data.closePrice || data.close || fallbackPrice,
+      openPrice: data.openPrice || data.open || fallbackPrice,
+      highPrice: data.highPrice || data.high || fallbackPrice,
+      lowPrice: data.lowPrice || data.low || fallbackPrice,
       change: data.change || 0,
       changePercent: data.changePercent || 0,
       total: data.total || {}
