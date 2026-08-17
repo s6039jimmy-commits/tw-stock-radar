@@ -30,10 +30,10 @@ export const generatePreMarketReport = async () => {
     const avgAdr = adrResults.length > 0
       ? adrResults.reduce((s, a) => s + parseFloat(a.changePct), 0) / adrResults.length
       : 0;
-    const marketBias = avgAdr >= 1 ? '🚀 偏多，可積極操作' :
-                       avgAdr >= 0 ? '😐 中性，謹慎操作' :
-                       avgAdr >= -1 ? '⚠️ 偏弱，縮手觀望' :
-                       '🔴 偏空，嚴格停損';
+    const marketBias = avgAdr >= 1 ? '🚀 強勢多頭 (預估開高，有利多單發動)' :
+                       avgAdr >= 0 ? '😐 震盪整理 (預估平盤，回歸個股表現)' :
+                       avgAdr >= -1 ? '⚠️ 弱勢震盪 (預估開低，建議保守應對)' :
+                       '🔴 空頭殺盤 (預估重挫，請保護現金與停損)';
 
     // 4. 抓今日重點財經新聞
     const news = await fetchLatestStockNews(5);
