@@ -175,13 +175,26 @@ export const sendExitAlert = (alert, position, profitPct = null) => {
 };
 
 export const sendDailySummary = (stats) => {
-  const html = `📊 <b>AI 台股雷達 — 每日總結</b>
+  const winRate = stats.winRate.toFixed(1);
+  const avgProfit = stats.avgProfitPct.toFixed(2);
+  let performanceStr = '';
 
-<b>總交易次數：</b> <code>${stats.totalTrades}</code> 筆
-<b>整體勝率：</b> <code>${stats.winRate.toFixed(1)}%</code>
-<b>平均交易損益：</b> <code>${stats.avgProfitPct > 0 ? '+' : ''}${stats.avgProfitPct.toFixed(2)}%</code>
+  if (stats.totalTrades === 0) {
+    performanceStr = '目前我們還沒有完成任何一筆交易，別心急，好獵人懂得耐心等待大魚上鉤！';
+  } else if (stats.avgProfitPct > 0) {
+    performanceStr = `這陣子我們總共操作了 <b>${stats.totalTrades}</b> 筆交易。\n整體勝率維持在 <b>${winRate}%</b>，平均每筆幫您賺了 <b>+${avgProfit}%</b> 💰\n績效很漂亮，我們繼續保持這個紀律，讓利潤奔跑！`;
+  } else {
+    performanceStr = `這陣子我們總共操作了 <b>${stats.totalTrades}</b> 筆交易。\n整體勝率是 <b>${winRate}%</b>，平均每筆虧損了 <b>${avgProfit}%</b> 🩸\n最近盤勢可能比較不好做，不過別擔心，系統會嚴格幫您執行停損，保護本金最重要！`;
+  }
 
-<i>系統持續 24 小時監控中...</i>`;
+  const html = `📊 <b>【本日收盤結算報告】</b>
+
+老闆，今天辛苦了！台股已經順利收盤囉。
+幫您總結一下系統目前的歷史戰績：
+
+${performanceStr}
+
+<i>☕ 晚上好好休息，明天早上 08:30 系統會準時把最新的早報跟 5 星名單送過來！</i>`;
   return sendHTML(html);
 };
 
