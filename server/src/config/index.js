@@ -21,7 +21,7 @@ export const VOLUME_RATIO_THRESHOLD = parseFloat(process.env.VOLUME_RATIO_THRESH
 export const BLUE_CHIP_TOP_N = parseInt(process.env.BLUE_CHIP_TOP_N || '50');
 
 // 掃描間隔 (分鐘)
-export const RADAR_SCAN_INTERVAL_MIN = parseInt(process.env.RADAR_SCAN_INTERVAL_MIN || '30');
+export const RADAR_SCAN_INTERVAL_MIN = parseInt(process.env.RADAR_SCAN_INTERVAL_MIN || '5');
 export const MONITOR_SCAN_INTERVAL_MIN = parseInt(process.env.MONITOR_SCAN_INTERVAL_MIN || '3');
 export const NEWS_SCAN_INTERVAL_MIN = parseInt(process.env.NEWS_SCAN_INTERVAL_MIN || '10');
 
