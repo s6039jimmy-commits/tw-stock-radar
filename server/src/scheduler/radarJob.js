@@ -26,11 +26,19 @@ export const runNightScan = async () => {
   await scanNightSession();
 };
 
+import { fetchLatestStockNews } from '../services/news/cnyesNews.js';
+import { generateMarketSummaryText } from '../services/ai/geminiClient.js';
+
 export const runPostMarketSummary = async () => {
   logger.info('Scheduler', '執行盤後統計總結...');
   try {
     const stats = await getTradeStats();
-    await sendDailySummary(stats);
+    
+    // 取得今日市場總結
+    const news = await fetchLatestStockNews(15);
+    const marketSummary = await generateMarketSummaryText(news);
+    
+    await sendDailySummary(stats, marketSummary);
   } catch (e) {
     logger.error('Scheduler', '發送盤後總結失敗', e);
   }

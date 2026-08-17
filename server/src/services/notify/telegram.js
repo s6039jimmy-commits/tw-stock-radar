@@ -174,7 +174,7 @@ export const sendExitAlert = (alert, position, profitPct = null) => {
   return sendHTML(html);
 };
 
-export const sendDailySummary = (stats) => {
+export const sendDailySummary = (stats, marketSummary = '') => {
   const winRate = stats.winRate.toFixed(1);
   const avgProfit = stats.avgProfitPct.toFixed(2);
   let performanceStr = '';
@@ -187,11 +187,16 @@ export const sendDailySummary = (stats) => {
     performanceStr = `這陣子我們總共操作了 <b>${stats.totalTrades}</b> 筆交易。\n整體勝率是 <b>${winRate}%</b>，平均每筆虧損了 <b>${avgProfit}%</b> 🩸\n最近盤勢可能比較不好做，不過別擔心，系統會嚴格幫您執行停損，保護本金最重要！`;
   }
 
+  let marketStr = '';
+  if (marketSummary) {
+    marketStr = `\n<b>📝 今日大盤閒聊：</b>\n<i>「${marketSummary}」</i>\n`;
+  }
+
   const html = `📊 <b>【本日收盤結算報告】</b>
 
 老闆，今天辛苦了！台股已經順利收盤囉。
-幫您總結一下系統目前的歷史戰績：
-
+${marketStr}
+<b>🎯 您的專屬戰績報告：</b>
 ${performanceStr}
 
 <i>☕ 晚上好好休息，明天早上 08:30 系統會準時把最新的早報跟 5 星名單送過來！</i>`;

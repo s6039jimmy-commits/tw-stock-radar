@@ -342,3 +342,22 @@ export const extractStockSymbol = async (text) => {
     return null;
   }
 };
+
+export const generateMarketSummaryText = async (newsItems) => {
+  if (!model || !model.textExtractor) return null;
+  const newsText = newsItems.map((n, i) => `${i + 1}. ${n.title}`).join('\n');
+  const prompt = `你是專業的台股操盤手，現在是下午兩點，台股剛收盤。
+請根據以下今天最新的新聞標題，用大約 30 到 50 個字，以「極度白話、像朋友聊天」的語氣，總結今天台股大盤到底發生什麼事（例如漲跌原因、強勢族群）。
+請直接輸出總結文字，不要有任何多餘的問候語。
+
+新聞標題：
+${newsText}`;
+  
+  try {
+    const result = await model.textExtractor.generateContent(prompt);
+    return result.response.text().trim();
+  } catch(e) {
+    logger.error('Gemini API', '大盤總結生成失敗', e);
+    return null;
+  }
+};
