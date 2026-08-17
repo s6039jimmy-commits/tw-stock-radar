@@ -192,8 +192,8 @@ export const quantitativeScore = (priceData, chipsData, revenueData, brokersData
     }
   }
 
-  // 星數轉換
-  const stars = score >= 80 ? 5 : score >= 65 ? 4 : score >= 50 ? 3 : score >= 35 ? 2 : 1;
+  // 星數轉換 (依使用者要求放寬：70分即5星)
+  const stars = score >= 70 ? 5 : score >= 55 ? 4 : score >= 40 ? 3 : score >= 25 ? 2 : 1;
 
   return { score, stars, breakdown };
 };
