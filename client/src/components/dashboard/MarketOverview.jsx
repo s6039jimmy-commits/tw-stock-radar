@@ -6,102 +6,60 @@ export default function MarketOverview() {
   const [data, setData] = useState([
     { label: '台股加權指數 (IX0001)', value: 0, change: 0, changePct: 0, type: 'index' },
     { label: '櫃買指數 (OTC)', value: 0, change: 0, changePct: 0, type: 'index' },
-    { label: '大盤預估成交量', value: '0', unit: '億', type: 'volume' }
+    { label: '大盤預估成交量', value: '0', unit: '億', type: 'volume' },
+    { label: '富邦台50 (006208)', value: 0, change: 0, changePct: 0, type: 'index' },
+    { label: '納指100 (QQQM)', value: 0, change: 0, changePct: 0, type: 'index' }
   ]);
 
-  useEffect(() => {
-    const fetchMarketData = () => {
-      Promise.all([
-        fetch('/api/market/quote/IX0001').then(res => res.json()).catch(() => ({})),
-        fetch('/api/market/quote/IX0043').then(res => res.json()).catch(() => ({}))
-      ]).then(([tseRes, otcRes]) => {
-        setData(prev => {
-          const newData = [...prev];
-          let totalVolume = 0;
-          
-          if (tseRes?.success && tseRes?.data) {
-            const q = tseRes.data;
-            newData[0] = {
-              ...newData[0],
-              value: q.closePrice || q.lastPrice || 0,
-              change: q.change || 0,
-              changePct: q.changePercent || 0
-            };
-            if (q.total && q.total.tradeValue) {
-              totalVolume += q.total.tradeValue;
-            }
-          }
-          
-          if (otcRes?.success && otcRes?.data) {
-            const q = otcRes.data;
-            newData[1] = {
-              ...newData[1],
-              value: q.closePrice || q.lastPrice || 0,
-              change: q.change || 0,
-              changePct: q.changePercent || 0
-            };
-            if (q.total && q.total.tradeValue) {
-              totalVolume += q.total.tradeValue;
-            }
-          }
-          
-          if (totalVolume > 0) {
-            const volumeInYi = (totalVolume / 100000000).toLocaleString('en-US', { maximumFractionDigits: 0 });
-            newData[2] = { ...newData[2], value: volumeInYi };
-          }
-          
-          return newData;
-        });
-      });
-    };
-
-    fetchMarketData(); // initial load
-    const intervalId = setInterval(fetchMarketData, 15000); // auto update every 15s
-    
-    return () => clearInterval(intervalId);
-  }, []);
-
-  const handleManualRefresh = () => {
-    // Re-trigger the same logic
+  const fetchDataLogic = () => {
     Promise.all([
       fetch('/api/market/quote/IX0001').then(res => res.json()).catch(() => ({})),
-      fetch('/api/market/quote/IX0043').then(res => res.json()).catch(() => ({}))
-    ]).then(([tseRes, otcRes]) => {
+      fetch('/api/market/quote/IX0043').then(res => res.json()).catch(() => ({})),
+      fetch('/api/market/quote/006208').then(res => res.json()).catch(() => ({})),
+      fetch('/api/market/quote/QQQM').then(res => res.json()).catch(() => ({}))
+    ]).then(([tseRes, otcRes, etfRes, qqqmRes]) => {
       setData(prev => {
         const newData = [...prev];
         let totalVolume = 0;
         
         if (tseRes?.success && tseRes?.data) {
           const q = tseRes.data;
-          newData[0] = {
-            ...newData[0],
-            value: q.closePrice || q.lastPrice || 0,
-            change: q.change || 0,
-            changePct: q.changePercent || 0
-          };
-          if (q.total && q.total.tradeValue) totalVolume += q.total.tradeValue;
+          newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          if (q.total?.tradeValue) totalVolume += q.total.tradeValue;
         }
         
         if (otcRes?.success && otcRes?.data) {
           const q = otcRes.data;
-          newData[1] = {
-            ...newData[1],
-            value: q.closePrice || q.lastPrice || 0,
-            change: q.change || 0,
-            changePct: q.changePercent || 0
-          };
-          if (q.total && q.total.tradeValue) totalVolume += q.total.tradeValue;
+          newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          if (q.total?.tradeValue) totalVolume += q.total.tradeValue;
         }
         
         if (totalVolume > 0) {
-          const volumeInYi = (totalVolume / 100000000).toLocaleString('en-US', { maximumFractionDigits: 0 });
-          newData[2] = { ...newData[2], value: volumeInYi };
+          newData[2] = { ...newData[2], value: (totalVolume / 100000000).toLocaleString('en-US', { maximumFractionDigits: 0 }) };
+        }
+
+        if (etfRes?.success && etfRes?.data) {
+          const q = etfRes.data;
+          newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+        }
+
+        if (qqqmRes?.success && qqqmRes?.data) {
+          const q = qqqmRes.data;
+          newData[4] = { ...newData[4], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
         }
         
         return newData;
       });
     });
   };
+
+  useEffect(() => {
+    fetchDataLogic();
+    const intervalId = setInterval(fetchDataLogic, 15000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const handleManualRefresh = () => fetchDataLogic();
 
   return (
     <div className="flex flex-col gap-4 mb-6">
@@ -118,7 +76,7 @@ export default function MarketOverview() {
           <span>重新整理</span>
         </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
       {data.map((item, idx) => {
         const isUp = item.change >= 0;
         const colorClass = isUp ? 'text-up' : 'text-down';
