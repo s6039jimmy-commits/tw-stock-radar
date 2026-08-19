@@ -197,8 +197,12 @@ export default function ChatPage() {
               <div className="chat-avatar" style={{width:'2rem', height:'2rem', borderRadius:'50%', background:'rgba(79,70,229,0.3)', border:'1px solid rgba(79,70,229,0.3)'}}>
                 <Bot size={16} color="#a5b4fc" />
               </div>
-              <div className="msg-bubble" style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                <span style={{fontSize:'12px'}}>AI 顧問正在研判大盤數據與籌碼...</span>
+              <div className="msg-bubble" style={{display:'flex', alignItems:'center'}}>
+                <div className="typing-indicator">
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                </div>
               </div>
             </div>
           )}
