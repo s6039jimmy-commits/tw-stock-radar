@@ -7,7 +7,6 @@ export default function Sidebar() {
 
   const navItems = [
     { path: '/', label: '儀表板', icon: LayoutDashboard },
-    { path: '/radar', label: '進場雷達', icon: Radar },
     { path: '/monitor', label: '持倉監控', icon: Eye },
     { path: '/history', label: '歷史紀錄', icon: History },
     { path: '/settings', label: '系統設定', icon: Settings },
