@@ -75,20 +75,20 @@ export default function MarketOverview() {
         const Icon = item.type === 'volume' ? Activity : isUp ? TrendingUp : TrendingDown;
         
         return (
-          <div key={idx} className="card-glass flex flex-col gap-2 relative overflow-hidden">
-            <span className="text-secondary text-sm font-medium">{item.label}</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold font-mono">
-                {item.type === 'volume' ? item.value : item.value.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          <div key={idx} className="card-glass flex flex-col gap-1 relative overflow-hidden min-w-0">
+            <span className="text-secondary text-xs font-medium truncate">{item.label}</span>
+            <div className="flex items-baseline gap-1 min-w-0">
+              <span className="text-xl md:text-2xl font-bold font-mono truncate">
+                {item.type === 'volume' ? item.value : (typeof item.value === 'number' ? item.value.toLocaleString('en-US', { minimumFractionDigits: 2 }) : item.value)}
               </span>
-              {item.unit && <span className="text-secondary text-sm font-sans">{item.unit}</span>}
+              {item.unit && <span className="text-secondary text-xs font-sans flex-shrink-0">{item.unit}</span>}
             </div>
             
             {item.change !== undefined && (
-              <div className={`flex items-center gap-1 text-sm font-medium ${colorClass}`}>
-                <Icon size={16} />
-                <span>
-                  {isUp ? '+' : ''}{item.change} ({formatPercent(item.changePct)})
+              <div className={`flex items-center gap-1 text-xs font-medium ${colorClass}`}>
+                <Icon size={12} />
+                <span className="truncate">
+                  {isUp ? '+' : ''}{typeof item.change === 'number' ? item.change.toFixed(2) : item.change} ({formatPercent(item.changePct)})
                 </span>
               </div>
             )}

@@ -18,10 +18,8 @@ import yahooFinance from 'yahoo-finance2';
 
 // 取得即時報價
 export const getQuote = async (symbol, retries = 3) => {
-  if (!client) return { symbol, closePrice: 100, openPrice: 99, highPrice: 101, lowPrice: 98, change: 1, changePercent: 1, lastPrice: 100 };
-  
-  // 美股直接使用 Yahoo Finance
-  if (/^[A-Z]+$/.test(symbol)) {
+  // 美股優先使用 Yahoo Finance（不需要 Fugle client）
+  if (/^[A-Z]{1,5}$/.test(symbol)) {
     try {
       const q = await yahooFinance.quote(symbol);
       return {
@@ -33,13 +31,16 @@ export const getQuote = async (symbol, retries = 3) => {
         lowPrice: q.regularMarketDayLow,
         change: q.regularMarketChange,
         changePercent: q.regularMarketChangePercent,
-        total: { tradeValue: q.regularMarketVolume * q.regularMarketPrice }
+        total: { tradeValue: (q.regularMarketVolume || 0) * (q.regularMarketPrice || 0) }
       };
     } catch (e) {
       logger.error('Yahoo Finance', `取得報價失敗 ${symbol}`, e);
       return null;
     }
   }
+
+  // 台股使用 Fugle
+  if (!client) return { symbol, closePrice: 100, openPrice: 99, highPrice: 101, lowPrice: 98, change: 1, changePercent: 1, lastPrice: 100 };
 
   try {
     const stock = client.stock;
