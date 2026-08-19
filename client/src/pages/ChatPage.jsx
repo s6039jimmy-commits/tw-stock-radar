@@ -217,7 +217,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={stockContext ? `詢問關於 ${stockContext.symbol}...` : "輸入你的問題 (例如：這檔現在做空安全嗎？)"}
+            placeholder={stockContext ? `詢問關於 ${stockContext.symbol}...` : "輸入您的問題"}
             rows="1"
             className="chat-input"
           />
