@@ -45,8 +45,8 @@ export const scan = async () => {
     const targetSymbols = BLUE_CHIP_SYMBOLS.slice(0, BLUE_CHIP_TOP_N);
     logger.info('BlueChip Scanner', `開始分析前 ${targetSymbols.length} 檔權值股...`);
 
-    // 逐一分析 (一次掃 5 檔以避免太慢)
-    for (const symbol of targetSymbols.slice(0, 5)) {
+    // 逐一分析 (一次掃 15 檔以增加覆蓋範圍)
+    for (const symbol of targetSymbols.slice(0, 15)) {
       try {
         const name = '';
         const annHeadlines = announcementMap[symbol] || [];
