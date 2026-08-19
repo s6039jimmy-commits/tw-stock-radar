@@ -210,26 +210,6 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* 快捷指令 Quick Prompts */}
-        <div className="chat-quick-prompts">
-          <div className="quick-prompts-title">
-            <Sparkles size={12} color="#f59e0b" />
-            <span>快捷提問推薦（點擊直接詢問）：</span>
-          </div>
-          <div className="quick-prompts-list">
-            {quickPrompts.map((qp, i) => (
-              <button
-                key={i}
-                onClick={() => handleSend(qp.text)}
-                disabled={loading}
-                className="quick-prompt-btn"
-              >
-                <span>{qp.label}</span>
-                <ArrowRight size={12} opacity={0.6} />
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* 輸入框 Input Bar */}
         <div className="chat-input-bar">
