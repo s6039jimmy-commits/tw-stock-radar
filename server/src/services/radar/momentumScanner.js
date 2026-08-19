@@ -80,7 +80,7 @@ export const scan = async () => {
         if (lastPrice < 15) {
           continue;
         }
-        if (tradeVolume > 0 && tradeVolume < 2000000) {
+        if (tradeVolume > 0 && tradeVolume < 1000000) {
           continue;
         }
 

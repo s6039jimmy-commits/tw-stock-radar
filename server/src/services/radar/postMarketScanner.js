@@ -137,13 +137,13 @@ const buildTomorrowWatchlist = async () => {
       return;
     }
 
-    // 第一關：量化初篩（漲幅 >3%、量 >3000 張、股價 >20 元）
+    // 第一關：量化初篩（漲幅 >3%、量 >1000 張、股價 >20 元）
     const candidates = allStocks
       .filter(s => {
         const changeP = parseFloat(s.changePercent || 0);
         const volume = parseInt(s.total?.tradeVolume || s.tradeVolume || 0, 10);
         const price = parseFloat(s.closePrice || s.lastPrice || 0);
-        return changeP >= 3.0 && volume >= 3000000 && price >= 20;
+        return changeP >= 3.0 && volume >= 1000000 && price >= 20;
       })
       .sort((a, b) => parseFloat(b.changePercent || 0) - parseFloat(a.changePercent || 0))
       .slice(0, 10);
