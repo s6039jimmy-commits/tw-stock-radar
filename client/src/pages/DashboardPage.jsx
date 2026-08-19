@@ -64,14 +64,6 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold flex items-center gap-2">
               <Target className="text-blue-400" /> 最新 AI 策略雷達訊號
             </h2>
-            <button 
-              onClick={handleManualScan}
-              disabled={loading}
-              className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3"
-            >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              <span>{loading ? '掃描中...' : '手動觸發雷達掃描'}</span>
-            </button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

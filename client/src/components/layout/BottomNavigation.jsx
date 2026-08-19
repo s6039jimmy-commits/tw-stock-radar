@@ -4,7 +4,7 @@ import { LayoutDashboard, Radar, Eye, History, Settings, Bot } from 'lucide-reac
 export default function BottomNavigation() {
   const navItems = [
     { path: '/', label: '總覽', icon: LayoutDashboard },
-    { path: '/history', label: '歷史', icon: History },
+    { path: '/radar', label: '雷達', icon: Radar },
     { path: '/monitor', label: '監控', icon: Eye },
     { path: '/settings', label: '設定', icon: Settings },
   ];
