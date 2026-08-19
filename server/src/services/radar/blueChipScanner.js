@@ -97,8 +97,8 @@ export const scan = async () => {
           // 寫入資料庫
           await addRadarSignal(signal);
           
-          // 推播通知 (5顆星才傳 Telegram)
-          if (result.confidence_stars >= 5) {
+          // 推播通知 (4顆星以上才傳 Telegram)
+          if (result.confidence_stars >= 4) {
             await sendEntrySignal(signal);
           }
           
