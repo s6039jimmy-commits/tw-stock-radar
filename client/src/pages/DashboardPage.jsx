@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import MarketOverview from '../components/dashboard/MarketOverview';
 import RadarSignalCard from '../components/dashboard/RadarSignalCard';
-import AlertTimeline from '../components/dashboard/AlertTimeline';
 import { Activity, Target, Trophy, RefreshCw } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -58,26 +57,17 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-6 pb-12">
       <MarketOverview />
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Target className="text-blue-400" /> 最新 AI 策略雷達訊號
-            </h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {signals.map(signal => (
-              <RadarSignalCard key={signal.id || signal.symbol} signal={signal} />
-            ))}
-          </div>
+      <div className="flex flex-col gap-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Target className="text-blue-400" /> 最新 AI 策略雷達訊號
+          </h2>
         </div>
         
-        <div className="flex flex-col gap-6">
-
-          <div className="flex-1 min-h-[380px]">
-            <AlertTimeline alerts={alerts} />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {signals.map(signal => (
+            <RadarSignalCard key={signal.id || signal.symbol} signal={signal} />
+          ))}
         </div>
       </div>
     </div>
