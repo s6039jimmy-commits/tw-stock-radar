@@ -8,7 +8,7 @@ export default function AppLayout({ children }) {
   const isChatPage = location.pathname === '/chat';
 
   return (
-    <div className="flex bg-[var(--bg-primary)] min-h-screen relative">
+    <div className="flex bg-transparent min-h-screen relative">
       <Sidebar />
       <div className="flex-1 main-content flex flex-col min-w-0">
         {!isChatPage && <Header />}
