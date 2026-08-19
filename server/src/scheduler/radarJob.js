@@ -64,8 +64,8 @@ export const startRadarJobs = () => {
     }
   }, options);
   
-  // 夜盤掃描 (15:00 到 05:00，每 15 分鐘一次)
-  cron.schedule('*/15 15-23,0-5 * * 1-5', runNightScan, options);
+  // 夜盤掃描改為定點回報：美股開盤後(22:30)、盤中(01:30)、收盤結算(05:30)
+  cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
   
   // 盤前早報 (08:30)
   cron.schedule('30 8 * * 1-5', runPreMarketScan, options);
