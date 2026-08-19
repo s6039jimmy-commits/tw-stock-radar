@@ -87,8 +87,8 @@ const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
 };
 
 export const sendEntrySignal = async (signal) => {
-  if (signal.ai_stars < 5) {
-    logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 5 星推播門檻，跳過推播。`);
+  if (signal.ai_stars < 4) {
+    logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 4 星推播門檻，跳過推播。`);
     return false;
   }
 
@@ -199,7 +199,7 @@ ${marketStr}
 <b>🎯 您的專屬戰績報告：</b>
 ${performanceStr}
 
-<i>☕ 晚上好好休息，明天早上 08:30 系統會準時把最新的早報跟 5 星名單送過來！</i>`;
+<i>☕ 晚上好好休息，明天早上 08:30 系統會準時把最新的早報跟 4 星以上強勢名單送過來！</i>`;
   return sendHTML(html);
 };
 

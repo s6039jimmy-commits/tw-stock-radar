@@ -170,12 +170,12 @@ const buildTomorrowWatchlist = async () => {
         const quote = { lastPrice: closePrice, changePercent: changeP, volumeRatio: 2.5 };
         const aiResult = await analyzeEntry(symbol, name, news.length > 0 ? news : [{ title: `${name} 今日爆量強漲 ${changeP}%` }], quote, revenue, chips, brokers);
 
-        if (!aiResult || aiResult.confidence_stars < 5) {
-          logger.info('PostMarket', `${symbol} AI 評分：${aiResult?.confidence_stars || 0} 星，未達 5 星，排除`);
+        if (!aiResult || aiResult.confidence_stars < 4) {
+          logger.info('PostMarket', `${symbol} AI 評分：${aiResult?.confidence_stars || 0} 星，未達 4 星，排除`);
           continue;
         }
 
-        logger.info('PostMarket', `⭐⭐⭐⭐⭐ ${symbol} ${name} 通過 AI 5 星關！`);
+        logger.info('PostMarket', `⭐ ${symbol} ${name} 通過 AI 4 星關卡！`);
 
         // 籌碼評分
         let chipsScore = '無資料';
