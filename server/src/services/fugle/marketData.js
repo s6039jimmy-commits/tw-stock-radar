@@ -14,9 +14,33 @@ try {
   logger.error('Fugle API', '初始化失敗', e);
 }
 
+import yahooFinance from 'yahoo-finance2';
+
 // 取得即時報價
 export const getQuote = async (symbol, retries = 3) => {
   if (!client) return { symbol, closePrice: 100, openPrice: 99, highPrice: 101, lowPrice: 98, change: 1, changePercent: 1, lastPrice: 100 };
+  
+  // 美股直接使用 Yahoo Finance
+  if (/^[A-Z]+$/.test(symbol)) {
+    try {
+      const q = await yahooFinance.quote(symbol);
+      return {
+        symbol,
+        closePrice: q.regularMarketPrice,
+        lastPrice: q.regularMarketPrice,
+        openPrice: q.regularMarketOpen,
+        highPrice: q.regularMarketDayHigh,
+        lowPrice: q.regularMarketDayLow,
+        change: q.regularMarketChange,
+        changePercent: q.regularMarketChangePercent,
+        total: { tradeValue: q.regularMarketVolume * q.regularMarketPrice }
+      };
+    } catch (e) {
+      logger.error('Yahoo Finance', `取得報價失敗 ${symbol}`, e);
+      return null;
+    }
+  }
+
   try {
     const stock = client.stock;
     const res = await stock.intraday.quote({ symbol });
