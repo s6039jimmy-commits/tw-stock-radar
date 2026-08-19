@@ -6,7 +6,6 @@ export default function MarketOverview() {
   const [data, setData] = useState([
     { label: '台股加權指數 (IX0001)', value: 0, change: 0, changePct: 0, type: 'index' },
     { label: '櫃買指數 (OTC)', value: 0, change: 0, changePct: 0, type: 'index' },
-    { label: '大盤預估成交量', value: '0', unit: '億', type: 'volume' },
     { label: '富邦台50 (006208)', value: 0, change: 0, changePct: 0, type: 'index' },
     { label: '納指100 (QQQM)', value: 0, change: 0, changePct: 0, type: 'index' }
   ]);
@@ -20,32 +19,25 @@ export default function MarketOverview() {
     ]).then(([tseRes, otcRes, etfRes, qqqmRes]) => {
       setData(prev => {
         const newData = [...prev];
-        let totalVolume = 0;
         
         if (tseRes?.success && tseRes?.data) {
           const q = tseRes.data;
           newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-          if (q.total?.tradeValue) totalVolume += q.total.tradeValue;
         }
         
         if (otcRes?.success && otcRes?.data) {
           const q = otcRes.data;
           newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-          if (q.total?.tradeValue) totalVolume += q.total.tradeValue;
-        }
-        
-        if (totalVolume > 0) {
-          newData[2] = { ...newData[2], value: (totalVolume / 100000000).toLocaleString('en-US', { maximumFractionDigits: 0 }) };
         }
 
         if (etfRes?.success && etfRes?.data) {
           const q = etfRes.data;
-          newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
         }
 
         if (qqqmRes?.success && qqqmRes?.data) {
           const q = qqqmRes.data;
-          newData[4] = { ...newData[4], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
         }
         
         return newData;
@@ -76,7 +68,7 @@ export default function MarketOverview() {
           <span>重新整理</span>
         </button>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
       {data.map((item, idx) => {
         const isUp = item.change >= 0;
         const colorClass = isUp ? 'text-up' : 'text-down';
