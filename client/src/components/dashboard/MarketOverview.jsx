@@ -5,7 +5,6 @@ import { TrendingUp, TrendingDown, Activity, RefreshCw } from 'lucide-react';
 export default function MarketOverview() {
   const [data, setData] = useState([
     { label: '台股加權指數 (IX0001)', value: 0, change: 0, changePct: 0, type: 'index' },
-    { label: '櫃買指數 (OTC)', value: 0, change: 0, changePct: 0, type: 'index' },
     { label: '富邦台50 (006208)', value: 0, change: 0, changePct: 0, type: 'index' },
     { label: '納指100 (QQQM)', value: 0, change: 0, changePct: 0, type: 'index' }
   ]);
@@ -13,10 +12,9 @@ export default function MarketOverview() {
   const fetchDataLogic = () => {
     Promise.all([
       fetch('/api/market/quote/IX0001').then(res => res.json()).catch(() => ({})),
-      fetch('/api/market/quote/IX0043').then(res => res.json()).catch(() => ({})),
       fetch('/api/market/quote/006208').then(res => res.json()).catch(() => ({})),
       fetch('/api/market/quote/QQQM').then(res => res.json()).catch(() => ({}))
-    ]).then(([tseRes, otcRes, etfRes, qqqmRes]) => {
+    ]).then(([tseRes, etfRes, qqqmRes]) => {
       setData(prev => {
         const newData = [...prev];
         
@@ -24,20 +22,15 @@ export default function MarketOverview() {
           const q = tseRes.data;
           newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
         }
-        
-        if (otcRes?.success && otcRes?.data) {
-          const q = otcRes.data;
-          newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-        }
 
         if (etfRes?.success && etfRes?.data) {
           const q = etfRes.data;
-          newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
         }
 
         if (qqqmRes?.success && qqqmRes?.data) {
           const q = qqqmRes.data;
-          newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
         }
         
         return newData;
@@ -68,7 +61,7 @@ export default function MarketOverview() {
           <span>重新整理</span>
         </button>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
       {data.map((item, idx) => {
         const isUp = item.change >= 0;
         const colorClass = isUp ? 'text-up' : 'text-down';
