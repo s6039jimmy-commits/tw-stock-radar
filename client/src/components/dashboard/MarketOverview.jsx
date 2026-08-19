@@ -10,38 +10,58 @@ export default function MarketOverview() {
     { label: '納指100 (QQQM)', value: 0, change: 0, changePct: 0, type: 'index' }
   ]);
 
-  const fetchDataLogic = () => {
-    Promise.all([
+  const fetchQQQM = async () => {
+    try {
+      const res = await fetch(
+        'https://query1.finance.yahoo.com/v8/finance/chart/QQQM?interval=1d&range=1d',
+        { headers: { 'Accept': 'application/json' } }
+      );
+      const json = await res.json();
+      const meta = json?.chart?.result?.[0]?.meta;
+      if (meta) {
+        return {
+          price: meta.regularMarketPrice || 0,
+          change: (meta.regularMarketPrice || 0) - (meta.previousClose || 0),
+          changePct: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 100
+        };
+      }
+    } catch (e) {
+      console.error('QQQM fetch failed', e);
+    }
+    return null;
+  };
+
+  const fetchDataLogic = async () => {
+    const [tseRes, etf50Res, etf56Res, qqqmData] = await Promise.all([
       fetch('/api/market/quote/IX0001').then(res => res.json()).catch(() => ({})),
       fetch('/api/market/quote/006208').then(res => res.json()).catch(() => ({})),
       fetch('/api/market/quote/0056').then(res => res.json()).catch(() => ({})),
-      fetch('/api/market/quote/QQQM').then(res => res.json()).catch(() => ({}))
-    ]).then(([tseRes, etf50Res, etf56Res, qqqmRes]) => {
-      setData(prev => {
-        const newData = [...prev];
-        
-        if (tseRes?.success && tseRes?.data) {
-          const q = tseRes.data;
-          newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-        }
+      fetchQQQM()
+    ]);
 
-        if (etf50Res?.success && etf50Res?.data) {
-          const q = etf50Res.data;
-          newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-        }
+    setData(prev => {
+      const newData = [...prev];
+      
+      if (tseRes?.success && tseRes?.data) {
+        const q = tseRes.data;
+        newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+      }
 
-        if (etf56Res?.success && etf56Res?.data) {
-          const q = etf56Res.data;
-          newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-        }
+      if (etf50Res?.success && etf50Res?.data) {
+        const q = etf50Res.data;
+        newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+      }
 
-        if (qqqmRes?.success && qqqmRes?.data) {
-          const q = qqqmRes.data;
-          newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-        }
-        
-        return newData;
-      });
+      if (etf56Res?.success && etf56Res?.data) {
+        const q = etf56Res.data;
+        newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+      }
+
+      if (qqqmData) {
+        newData[3] = { ...newData[3], value: qqqmData.price, change: qqqmData.change, changePct: qqqmData.changePct };
+      }
+
+      return newData;
     });
   };
 
