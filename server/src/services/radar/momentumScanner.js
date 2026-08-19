@@ -32,7 +32,8 @@ export const scan = async () => {
     
     announcements.forEach(a => {
       if (a.公司代號) {
-        activeMap.set(a.公司代號, { symbol: a.公司代號, name: a.公司簡稱, volumeRatio: parseFloat((Math.random() * 3 + 2).toFixed(2)) });
+        // 不在這裡產生假的量比，等拿到真實報價後再計算
+        activeMap.set(a.公司代號, { symbol: a.公司代號, name: a.公司簡稱 });
       }
     });
 
@@ -45,7 +46,7 @@ export const scan = async () => {
         { symbol: '8222', name: '寶一' }, { symbol: '4909', name: '新復興' },
         { symbol: '5443', name: '均豪' }, { symbol: '2486', name: '一詮' }
       ];
-      fallbacks.forEach(f => activeMap.set(f.symbol, { ...f, volumeRatio: parseFloat((Math.random() * 3 + 2).toFixed(2)) }));
+      fallbacks.forEach(f => activeMap.set(f.symbol, { ...f }));
     }
 
     const allActives = Array.from(activeMap.values());
@@ -84,12 +85,18 @@ export const scan = async () => {
           continue;
         }
 
-        const volumeRatio = item.volumeRatio || item.volume_ratio || VOLUME_RATIO_THRESHOLD;
+        // 從真實報價計算量比（今日量 / 預估均量，用 total.tradeVolume 估算）
+        // Fugle 不直接提供 20日均量，以今日成交量 / 500000 張作為基準估算
+        const avgVolEstimate = 500000; // 中型股平均基準
+        const realVolumeRatio = tradeVolume > 0 
+          ? parseFloat((tradeVolume / avgVolEstimate).toFixed(2))
+          : parseFloat(VOLUME_RATIO_THRESHOLD);
+
         const hasAnnouncement = announcements.some(a => a.公司代號?.trim() === symbol);
 
         const result = await analyzeEntry(symbol, name, newsItems, {
           ...quote,
-          volumeRatio
+          volumeRatio: realVolumeRatio
         }, revenue, chips, brokers, { hasAnnouncement });
 
         if (result && result.confidence_stars) {
