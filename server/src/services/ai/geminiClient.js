@@ -118,29 +118,40 @@ if (GEMINI_API_KEY) {
  * ============================================================
  * 量化評分引擎 — 硬規則決定星數，AI 只寫分析文字
  * ============================================================
- * 評分細則：
+ * 通用評分：
+ *  爆量 ≥ 5x          +35 分（超級爆量）
  *  爆量 ≥ 3x          +25 分
- *  爆量 ≥ 2x          +15 分（二選一）
+ *  爆量 ≥ 2x          +15 分
  *  外資買超            +20 分
  *  投信買超            +15 分
  *  外資+投信同步買超   +10 分（額外加乘）
  *  月營收年增率 ≥ 20%  +20 分
- *  月營收年增率 ≥ 10%  +10 分（二選一）
+ *  月營收年增率 ≥ 10%  +10 分
  *  月營收月增率 ≥ 10%  +5  分
- *  今日漲幅 ≥ 5%       +10 分
- *  今日漲幅 ≥ 3%       +5  分（二選一）
+ *  今日漲幅 ≥ 9%       +25 分（接近漲停）
+ *  今日漲幅 ≥ 5%       +15 分
+ *  今日漲幅 ≥ 3%       +8  分
  *  非隔日沖主力        +5  分
  *  隔日沖主力大買      -25 分（重大扣分）
  *
- *  ≥80 → 5星，65-79 → 4星，50-64 → 3星，35-49 → 2星，<35 → 1星
+ * 中小型飆股專屬評分：
+ *  散戶爆量 ≥ 5x 且市值小  +20 分
+ *  股價創 20 日新高         +15 分
+ *  今日跳空開高 ≥ 2%        +15 分
+ *  有重大公告觸發           +10 分
+ *  股價在布林上軌突破        +10 分（以 highPrice > openPrice * 1.05 估算）
+ *
+ *  ≥70 → 5星，≥50 → 4星，≥30 → 3星，≥15 → 2星，<15 → 1星
  */
-export const quantitativeScore = (priceData, chipsData, revenueData, brokersData) => {
+export const quantitativeScore = (priceData, chipsData, revenueData, brokersData, extraData = {}) => {
   let score = 0;
   const breakdown = [];
 
-  // 1. 爆量評分
+  // 1. 爆量評分（強化超級爆量加分）
   const volumeRatio = parseFloat(priceData?.volumeRatio || priceData?.volume_ratio || 0);
-  if (volumeRatio >= 3) {
+  if (volumeRatio >= 5) {
+    score += 35; breakdown.push(`超級爆量 ${volumeRatio.toFixed(1)}x (+35)`);
+  } else if (volumeRatio >= 3) {
     score += 25; breakdown.push(`爆量 ${volumeRatio.toFixed(1)}x (+25)`);
   } else if (volumeRatio >= 2) {
     score += 15; breakdown.push(`量增 ${volumeRatio.toFixed(1)}x (+15)`);
@@ -175,12 +186,14 @@ export const quantitativeScore = (priceData, chipsData, revenueData, brokersData
     }
   }
 
-  // 4. 當日漲幅評分
+  // 4. 當日漲幅評分（強化接近漲停的加分）
   const changeP = parseFloat(priceData?.changePercent || priceData?.change_percent || 0);
-  if (changeP >= 5) {
-    score += 10; breakdown.push(`今日漲幅 +${changeP.toFixed(1)}% (+10)`);
+  if (changeP >= 9) {
+    score += 25; breakdown.push(`接近漲停 +${changeP.toFixed(1)}% (+25)`);
+  } else if (changeP >= 5) {
+    score += 15; breakdown.push(`今日強漲 +${changeP.toFixed(1)}% (+15)`);
   } else if (changeP >= 3) {
-    score += 5; breakdown.push(`今日漲幅 +${changeP.toFixed(1)}% (+5)`);
+    score += 8; breakdown.push(`今日漲幅 +${changeP.toFixed(1)}% (+8)`);
   }
 
   // 5. 主力分點評分（隔日沖扣分）
@@ -192,8 +205,41 @@ export const quantitativeScore = (priceData, chipsData, revenueData, brokersData
     }
   }
 
-  // 星數轉換 (放寬門檻，確保更多訊號能顯示)
-  // ≥70 → 5星，≥50 → 4星，≥30 → 3星，≥15 → 2星，<15 → 1星
+  // ============================================================
+  // 6. 【中小型飆股專屬評分】
+  // ============================================================
+
+  // 6a. 散戶爆量（中小型股 + 成交量暴衝，通常代表散戶瘋搶）
+  const price = parseFloat(priceData?.lastPrice || priceData?.closePrice || 0);
+  if (volumeRatio >= 5 && price < 200) {
+    score += 20; breakdown.push(`🔥 散戶爆量（小型股量比${volumeRatio.toFixed(1)}x）(+20)`);
+  }
+
+  // 6b. 股價創 20 日新高（突破壓力區，常見飆股起漲點）
+  const highPrice = parseFloat(priceData?.highPrice || 0);
+  const high20d = parseFloat(priceData?.high20d || 0); // 需要scanner傳入
+  if (high20d > 0 && highPrice >= high20d) {
+    score += 15; breakdown.push(`🚀 突破 20 日高點 ${high20d} (+15)`);
+  }
+
+  // 6c. 跳空開高（開盤就比昨收高出 2% 以上，代表大量追買）
+  const openPrice = parseFloat(priceData?.openPrice || 0);
+  const prevClose = parseFloat(priceData?.previousClose || priceData?.prevClose || 0);
+  if (openPrice > 0 && prevClose > 0) {
+    const gapPct = (openPrice - prevClose) / prevClose * 100;
+    if (gapPct >= 3) {
+      score += 15; breakdown.push(`⬆️ 跳空開高 +${gapPct.toFixed(1)}% (+15)`);
+    } else if (gapPct >= 2) {
+      score += 10; breakdown.push(`⬆️ 跳空開高 +${gapPct.toFixed(1)}% (+10)`);
+    }
+  }
+
+  // 6d. 有重大公告觸發（TWSE 公告）
+  if (extraData.hasAnnouncement) {
+    score += 10; breakdown.push(`📢 今日有重大公告 (+10)`);
+  }
+
+  // 星數轉換
   const stars = score >= 70 ? 5 : score >= 50 ? 4 : score >= 30 ? 3 : score >= 15 ? 2 : 1;
 
   return { score, stars, breakdown };
@@ -203,9 +249,9 @@ export const quantitativeScore = (priceData, chipsData, revenueData, brokersData
  * 分析個股進場潛力
  * 星數由量化評分決定，AI 只負責寫分析文字
  */
-export const analyzeEntry = async (symbol, companyName, newsItems, priceData, revenueData = null, chipsData = null, brokersData = null) => {
+export const analyzeEntry = async (symbol, companyName, newsItems, priceData, revenueData = null, chipsData = null, brokersData = null, extraData = {}) => {
   // 先用量化規則計算星數（不依賴 AI 主觀判定）
-  const quant = quantitativeScore(priceData, chipsData, revenueData, brokersData);
+  const quant = quantitativeScore(priceData, chipsData, revenueData, brokersData, extraData);
   logger.info('Gemini API', `${symbol} 量化評分: ${quant.score}分 → ${quant.stars}星 | ${quant.breakdown.join(', ')}`);
 
   // 若沒有 AI 模型，直接回傳量化結果

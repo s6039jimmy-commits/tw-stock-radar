@@ -85,11 +85,12 @@ export const scan = async () => {
         }
 
         const volumeRatio = item.volumeRatio || item.volume_ratio || VOLUME_RATIO_THRESHOLD;
+        const hasAnnouncement = announcements.some(a => a.公司代號?.trim() === symbol);
 
         const result = await analyzeEntry(symbol, name, newsItems, {
           ...quote,
           volumeRatio
-        }, revenue, chips, brokers);
+        }, revenue, chips, brokers, { hasAnnouncement });
 
         if (result && result.confidence_stars) {
           const signal = {
