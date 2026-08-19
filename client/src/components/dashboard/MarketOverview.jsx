@@ -12,17 +12,16 @@ export default function MarketOverview() {
 
   const fetchQQQM = async () => {
     try {
-      const res = await fetch(
-        'https://query1.finance.yahoo.com/v8/finance/chart/QQQM?interval=1d&range=1d',
-        { headers: { 'Accept': 'application/json' } }
-      );
+      // 用 allorigins CORS proxy 繞過瀏覽器跨域限制
+      const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/QQQM?interval=1d&range=1d';
+      const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`);
       const json = await res.json();
       const meta = json?.chart?.result?.[0]?.meta;
-      if (meta) {
+      if (meta && meta.regularMarketPrice) {
         return {
-          price: meta.regularMarketPrice || 0,
-          change: (meta.regularMarketPrice || 0) - (meta.previousClose || 0),
-          changePct: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 100
+          price: meta.regularMarketPrice,
+          change: parseFloat((meta.regularMarketPrice - meta.previousClose).toFixed(2)),
+          changePct: parseFloat(((meta.regularMarketPrice - meta.previousClose) / meta.previousClose * 100).toFixed(2))
         };
       }
     } catch (e) {
