@@ -82,17 +82,7 @@ export default function DashboardPage() {
         </div>
         
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="card-glass p-4 flex flex-col gap-2">
-              <span className="text-xs text-secondary flex items-center gap-1"><Activity size={14}/> 監控中部位</span>
-              <span className="text-2xl font-bold font-mono">{positionsCount} <span className="text-sm font-sans font-normal text-muted">檔</span></span>
-            </div>
-            <div className="card-glass p-4 flex flex-col gap-2">
-              <span className="text-xs text-secondary flex items-center gap-1"><Trophy size={14}/> 本月勝率</span>
-              <span className="text-2xl font-bold font-mono text-up">{stats.winRate || 0}%</span>
-            </div>
-          </div>
-          
+
           <div className="flex-1 min-h-[380px]">
             <AlertTimeline alerts={alerts} />
           </div>
