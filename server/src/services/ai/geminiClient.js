@@ -239,8 +239,8 @@ export const quantitativeScore = (priceData, chipsData, revenueData, brokersData
     score += 10; breakdown.push(`📢 今日有重大公告 (+10)`);
   }
 
-  // 星數轉換
-  const stars = score >= 70 ? 5 : score >= 50 ? 4 : score >= 30 ? 3 : score >= 15 ? 2 : 1;
+  // 星數轉換 (調高門檻，讓 5 星非常難拿)
+  const stars = score >= 85 ? 5 : score >= 60 ? 4 : score >= 40 ? 3 : score >= 20 ? 2 : 1;
 
   return { score, stars, breakdown };
 };
