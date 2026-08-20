@@ -293,11 +293,17 @@ ${newsText}
     let parsed = {};
     try { parsed = JSON.parse(text); } catch (_) {}
 
+    // 判斷是否為盤前 (早上 9 點前)
+    const now = new Date();
+    const taiwanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+    const isPreMarket = taiwanTime.getHours() < 9;
+
     return {
       symbol,
       company_name: parsed.company_name || companyName,
       sentiment: parsed.sentiment || (quant.stars >= 4 ? 'BULLISH' : quant.stars <= 2 ? 'BEARISH' : 'NEUTRAL'),
-      confidence_stars: Math.max(quant.stars, parsed.confidence_stars || 1), // 取 AI 星數與量化星數的高者
+      // 盤中/盤後嚴格使用量化星數避免 AI 浮濫給星造成洗版，只有盤前（無量價數據）才允許 AI 依據新聞加分
+      confidence_stars: isPreMarket ? Math.max(quant.stars, parsed.confidence_stars || 1) : quant.stars,
       catalyst: parsed.catalyst || `量化評分 ${quant.score} 分（${quant.breakdown.join(' / ')}）`,
       action_plan: parsed.action_plan || (quant.stars >= 5 ? '量化條件極強，可考慮明日進場' : '觀望')
     };
