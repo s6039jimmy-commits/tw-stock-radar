@@ -12,6 +12,9 @@ export default function MonitorPage() {
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ symbol: '', entry_price: '', shares: 1000 });
+
   const fetchMonitorData = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -30,6 +33,30 @@ export default function MonitorPage() {
     }
   }, []);
 
+  const submitAddPosition = async () => {
+    if (!addForm.symbol || !addForm.entry_price) return;
+    try {
+      await fetch('/api/monitor/positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: addForm.symbol,
+          name: addForm.symbol, // 可以接 API 抓名字，這裡先用代號代替
+          entry_price: parseFloat(addForm.entry_price),
+          shares: parseInt(addForm.shares, 10) || 1000,
+          entry_date: new Date().toISOString(),
+          entry_reason: '手動新增持倉',
+          ai_stars: 0
+        })
+      });
+      setShowAddModal(false);
+      setAddForm({ symbol: '', entry_price: '', shares: 1000 });
+      fetchMonitorData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     // 初次載入
     fetchMonitorData();
@@ -37,7 +64,7 @@ export default function MonitorPage() {
     // 設定每 5 秒自動更新一次報價
     const interval = setInterval(fetchMonitorData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchMonitorData]);
 
   const totalPnl = positions.reduce((acc, pos) => {
     const shares = pos.shares || 1000;
@@ -46,7 +73,36 @@ export default function MonitorPage() {
   const pnlClass = totalPnl > 0 ? 'text-[var(--color-up)]' : totalPnl < 0 ? 'text-[var(--color-down)]' : '';
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 relative">
+      {/* 新增持倉 Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1a1b26] border border-white/10 rounded-xl p-6 w-full max-w-md flex flex-col gap-4 shadow-2xl">
+            <h3 className="text-xl font-bold flex items-center gap-2"><Plus size={20} className="text-indigo-400" /> 新增持倉監控</h3>
+            
+            <div className="flex flex-col gap-1 mt-2">
+              <label className="text-xs text-secondary">股票代號</label>
+              <input type="text" className="bg-black/40 border border-white/10 rounded px-3 py-2 outline-none focus:border-indigo-500 font-mono" placeholder="例: 2317" value={addForm.symbol} onChange={e => setAddForm({...addForm, symbol: e.target.value})} />
+            </div>
+            
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-secondary">進場成本價 (NT$)</label>
+              <input type="number" step="0.01" className="bg-black/40 border border-white/10 rounded px-3 py-2 outline-none focus:border-indigo-500 font-mono" placeholder="例: 150.5" value={addForm.entry_price} onChange={e => setAddForm({...addForm, entry_price: e.target.value})} />
+            </div>
+            
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-secondary">購買股數 (1張 = 1000股)</label>
+              <input type="number" className="bg-black/40 border border-white/10 rounded px-3 py-2 outline-none focus:border-indigo-500 font-mono" value={addForm.shares} onChange={e => setAddForm({...addForm, shares: e.target.value})} />
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-4">
+              <button className="px-4 py-2 text-sm text-secondary hover:text-white transition-colors" onClick={() => setShowAddModal(false)}>取消</button>
+              <button className="btn btn-primary" onClick={submitAddPosition} disabled={!addForm.symbol || !addForm.entry_price}>確定新增</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex flex-wrap gap-4 w-full md:w-auto">
           <div className="card-glass py-3 px-6 flex items-center gap-4">
@@ -92,7 +148,7 @@ export default function MonitorPage() {
             <span>重新整理</span>
           </button>
           
-          <button className="btn btn-primary">
+          <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
             <Plus size={16} />
             <span>新增持倉</span>
           </button>
