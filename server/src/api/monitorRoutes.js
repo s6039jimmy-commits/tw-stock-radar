@@ -1,10 +1,24 @@
 import { Router } from 'express';
 import { getActivePositions, addPosition, updatePosition, exitPosition, getExitAlerts } from '../db/database.js';
+import { getQuote } from '../services/fugle/marketData.js';
 
 const router = Router();
 
 router.get('/positions', async (req, res) => {
-  res.json({ success: true, data: await getActivePositions() });
+  const positions = await getActivePositions();
+  
+  // 即時抓取每檔持股的當前報價，填入 current_price
+  const enriched = await Promise.all(positions.map(async (pos) => {
+    try {
+      const quote = await getQuote(pos.symbol);
+      const currentPrice = quote?.lastPrice || quote?.closePrice || pos.entry_price;
+      return { ...pos, current_price: currentPrice };
+    } catch (e) {
+      return { ...pos, current_price: pos.entry_price };
+    }
+  }));
+
+  res.json({ success: true, data: enriched });
 });
 
 import { evaluatePosition, evaluatePositionNewsOnly } from '../services/monitor/exitEngine.js';
