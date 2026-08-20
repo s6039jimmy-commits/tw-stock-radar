@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { formatPrice, formatPercent, getProfitClass } from '../../utils/formatters';
-import { Target, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Target, TrendingDown, TrendingUp, AlertTriangle, Edit2 } from 'lucide-react';
 
 export default function PositionCard({ position }) {
+  const [isEditingShares, setIsEditingShares] = useState(false);
+  const [sharesValue, setSharesValue] = useState(position?.shares || 1000);
+
   if (!position) return null;
 
   const shares = position.shares || 1000; // 預設 1000 股 (1張)
@@ -16,6 +20,25 @@ export default function PositionCard({ position }) {
   
   const distanceToSl = ((position.current_price - stopLoss) / position.current_price) * 100;
   
+  const handleSaveShares = async () => {
+    setIsEditingShares(false);
+    const val = parseInt(sharesValue, 10);
+    if (!isNaN(val) && val > 0 && val !== shares) {
+      try {
+        await fetch(`/api/monitor/positions/${position.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shares: val })
+        });
+        // 畫面會在下次 5 秒 polling 時自動更新為新股數
+      } catch (e) {
+        console.error('Failed to update shares', e);
+      }
+    } else {
+      setSharesValue(shares);
+    }
+  };
+
   return (
     <div className="card-glass flex flex-col gap-4">
       <div className="flex justify-between items-start border-b border-[var(--card-border)] pb-4">
@@ -23,7 +46,25 @@ export default function PositionCard({ position }) {
           <div className="flex items-center gap-2">
             <h3 className="text-xl font-bold">{position.name}</h3>
             <span className="text-sm font-mono text-secondary px-2 py-0.5 bg-white/10 rounded">{position.symbol}</span>
-            <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">{shares} 股</span>
+            {isEditingShares ? (
+              <input
+                type="number"
+                autoFocus
+                className="w-20 px-2 py-0.5 text-xs bg-black/40 border border-indigo-500/50 rounded outline-none text-indigo-400 font-mono"
+                value={sharesValue}
+                onChange={(e) => setSharesValue(e.target.value)}
+                onBlur={handleSaveShares}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveShares()}
+              />
+            ) : (
+              <button 
+                onClick={() => setIsEditingShares(true)}
+                className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full hover:bg-indigo-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                title="點擊修改股數"
+              >
+                {shares} 股 <Edit2 size={10} />
+              </button>
+            )}
           </div>
           <span className="text-xs text-muted mt-1">進場日: {new Date(position.entry_date).toLocaleDateString('zh-TW')}</span>
         </div>
