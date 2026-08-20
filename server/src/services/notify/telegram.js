@@ -101,8 +101,8 @@ export const sendEntrySignal = async (signal) => {
     await setSetting('DAILY_PUSH_DATE', today);
   }
 
-  if (pushCount >= 1) {
-    logger.info('Telegram', `今日推播已達上限 (1 筆)，跳過信號 ${signal.symbol}`);
+  if (pushCount >= 10) {
+    logger.info('Telegram', `今日推播已達上限 (10 次)，跳過信號 ${signal.symbol}`);
     return false;
   }
 
