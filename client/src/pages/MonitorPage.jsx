@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import WatchList from '../components/monitor/WatchList';
 import PositionCard from '../components/monitor/PositionCard';
 import ExitAlertPanel from '../components/monitor/ExitAlertPanel';
-import { Plus, DollarSign, Activity, Trophy } from 'lucide-react';
+import { Plus, DollarSign, Activity, Trophy, RefreshCw } from 'lucide-react';
 import { formatPrice } from '../utils/formatters';
 
 export default function MonitorPage() {
