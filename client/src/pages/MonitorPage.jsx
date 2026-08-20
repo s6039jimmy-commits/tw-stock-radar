@@ -10,7 +10,10 @@ export default function MonitorPage() {
   const [alerts, setAlerts] = useState([]);
   const [stats, setStats] = useState({ winRate: 0 });
   
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
   const fetchMonitorData = useCallback(async () => {
+    setIsRefreshing(true);
     try {
       const [positionsRes, alertsRes, statsRes] = await Promise.all([
         fetch('/api/monitor/positions').then(res => res.json()).catch(() => ({ success: false, data: [] })),
@@ -22,6 +25,8 @@ export default function MonitorPage() {
       if (statsRes?.success) setStats(statsRes.data || { winRate: 0 });
     } catch (e) {
       console.error('Failed to fetch monitor data', e);
+    } finally {
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -82,8 +87,8 @@ export default function MonitorPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <button onClick={fetchMonitorData} className="btn btn-secondary text-xs flex items-center gap-1.5 py-2 px-3">
-            <RefreshCw size={14} />
+          <button onClick={fetchMonitorData} disabled={isRefreshing} className="btn btn-secondary text-xs flex items-center gap-1.5 py-2 px-3">
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
             <span>重新整理</span>
           </button>
           
