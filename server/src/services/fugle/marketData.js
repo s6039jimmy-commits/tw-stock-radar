@@ -14,11 +14,12 @@ try {
   logger.error('Fugle API', '初始化失敗', e);
 }
 
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 // 取得即時報價
 export const getQuote = async (symbol, retries = 3) => {
-  // 美股優先使用 Yahoo Finance（不需要 Fugle client）
+  // 美股等使用 Yahoo Finance（不透過 Fugle client）
   if (/^[A-Z]{1,5}$/.test(symbol)) {
     try {
       const q = await yahooFinance.quote(symbol);
