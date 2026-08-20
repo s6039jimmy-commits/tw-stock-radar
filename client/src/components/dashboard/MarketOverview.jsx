@@ -10,54 +10,63 @@ export default function MarketOverview() {
     { label: '納指100 (QQQM)', value: 0, change: 0, changePct: 0, type: 'index' }
   ]);
 
-  const fetchDataLogic = () => {
-    // IX0001
-    fetch('/api/market/quote/IX0001').then(res => res.json()).then(res => {
-      if (res?.success && res?.data) {
-        setData(prev => {
-          const newData = [...prev];
-          const q = res.data;
-          newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-          return newData;
-        });
-      }
-    }).catch(() => {});
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // 006208
-    fetch('/api/market/quote/006208').then(res => res.json()).then(res => {
-      if (res?.success && res?.data) {
-        setData(prev => {
-          const newData = [...prev];
-          const q = res.data;
-          newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-          return newData;
-        });
-      }
-    }).catch(() => {});
+  const fetchDataLogic = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        // IX0001
+        fetch('/api/market/quote/IX0001').then(res => res.json()).then(res => {
+          if (res?.success && res?.data) {
+            setData(prev => {
+              const newData = [...prev];
+              const q = res.data;
+              newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+              return newData;
+            });
+          }
+        }).catch(() => {}),
 
-    // 0056
-    fetch('/api/market/quote/0056').then(res => res.json()).then(res => {
-      if (res?.success && res?.data) {
-        setData(prev => {
-          const newData = [...prev];
-          const q = res.data;
-          newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-          return newData;
-        });
-      }
-    }).catch(() => {});
+        // 006208
+        fetch('/api/market/quote/006208').then(res => res.json()).then(res => {
+          if (res?.success && res?.data) {
+            setData(prev => {
+              const newData = [...prev];
+              const q = res.data;
+              newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+              return newData;
+            });
+          }
+        }).catch(() => {}),
 
-    // QQQM
-    fetch('/api/market/quote/QQQM').then(res => res.json()).then(res => {
-      if (res?.success && res?.data) {
-        setData(prev => {
-          const newData = [...prev];
-          const q = res.data;
-          newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
-          return newData;
-        });
-      }
-    }).catch(() => {});
+        // 0056
+        fetch('/api/market/quote/0056').then(res => res.json()).then(res => {
+          if (res?.success && res?.data) {
+            setData(prev => {
+              const newData = [...prev];
+              const q = res.data;
+              newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+              return newData;
+            });
+          }
+        }).catch(() => {}),
+
+        // QQQM
+        fetch('/api/market/quote/QQQM').then(res => res.json()).then(res => {
+          if (res?.success && res?.data) {
+            setData(prev => {
+              const newData = [...prev];
+              const q = res.data;
+              newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+              return newData;
+            });
+          }
+        }).catch(() => {})
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -76,10 +85,11 @@ export default function MarketOverview() {
         </h2>
         <button 
           onClick={handleManualRefresh}
+          disabled={isRefreshing}
           className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3"
-          title="重新取得最新報價"
+          title="重新整理即時報價"
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
           <span>重新整理</span>
         </button>
       </div>
