@@ -34,7 +34,10 @@ export default function MonitorPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const totalPnl = positions.reduce((acc, pos) => acc + (pos.current_price - pos.entry_price), 0);
+  const totalPnl = positions.reduce((acc, pos) => {
+    const shares = pos.shares || 1000;
+    return acc + ((pos.current_price - pos.entry_price) * shares);
+  }, 0);
   const pnlClass = totalPnl > 0 ? 'text-[var(--color-up)]' : totalPnl < 0 ? 'text-[var(--color-down)]' : '';
 
   return (

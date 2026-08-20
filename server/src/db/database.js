@@ -95,7 +95,8 @@ export const addPosition = async (data) => {
       entry_date: data.entry_date,
       entry_reason: data.entry_reason || null,
       ai_stars: data.ai_stars || null,
-      status: 'MONITORING',                          // ← 明確寫入，否則查不到
+      shares: data.shares || 1000,                   // ← 加入股數，預設 1000
+      status: 'MONITORING',
       stop_loss_pct: data.stop_loss_pct ?? -7.0,
       take_profit_pct: data.take_profit_pct ?? 15.0,
       ma5_exit: data.ma5_exit ?? 1

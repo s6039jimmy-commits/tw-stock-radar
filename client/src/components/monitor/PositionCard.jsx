@@ -4,13 +4,15 @@ import { Target, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
 export default function PositionCard({ position }) {
   if (!position) return null;
 
-  const pnl = position.current_price - position.entry_price;
-  const pnlPct = (pnl / position.entry_price) * 100;
+  const shares = position.shares || 1000; // 預設 1000 股 (1張)
+  const pnlPerShare = position.current_price - position.entry_price;
+  const totalPnl = pnlPerShare * shares;
+  const pnlPct = (pnlPerShare / position.entry_price) * 100;
   const colorClass = getProfitClass(pnlPct);
   
   // Mock thresholds
-  const stopLoss = position.entry_price * 0.95;
-  const takeProfit = position.entry_price * 1.15;
+  const stopLoss = position.entry_price * (1 + (position.stop_loss_pct / 100));
+  const takeProfit = position.entry_price * (1 + (position.take_profit_pct / 100));
   
   const distanceToSl = ((position.current_price - stopLoss) / position.current_price) * 100;
   
@@ -21,13 +23,14 @@ export default function PositionCard({ position }) {
           <div className="flex items-center gap-2">
             <h3 className="text-xl font-bold">{position.name}</h3>
             <span className="text-sm font-mono text-secondary px-2 py-0.5 bg-white/10 rounded">{position.symbol}</span>
+            <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">{shares} 股</span>
           </div>
-          <span className="text-xs text-muted mt-1">進場時間: {new Date(position.entry_date).toLocaleDateString('zh-TW')}</span>
+          <span className="text-xs text-muted mt-1">進場日: {new Date(position.entry_date).toLocaleDateString('zh-TW')}</span>
         </div>
         <div className="flex flex-col items-end">
           <span className="text-sm text-secondary">未實現損益</span>
           <span className={`text-2xl font-bold font-mono ${colorClass}`}>
-            {pnl > 0 ? '+' : ''}{formatPrice(Math.abs(pnl)).replace('NT$ ', '')} ({formatPercent(pnlPct)})
+            {totalPnl > 0 ? '+' : ''}{formatPrice(Math.abs(totalPnl)).replace('NT$ ', '')} ({formatPercent(pnlPct)})
           </span>
         </div>
       </div>
