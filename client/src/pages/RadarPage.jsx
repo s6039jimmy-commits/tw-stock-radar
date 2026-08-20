@@ -12,8 +12,19 @@ export default function RadarPage() {
       const res = await fetch('/api/radar/signals');
       const data = await res.json();
       if (data.success && data.data) {
-        // 依 AI 星數排序，最高星數排最前
-        const sorted = [...data.data].sort((a, b) => (b.ai_stars || 0) - (a.ai_stars || 0));
+        // 去除重複的股票代號，只保留第一筆 (因為後端通常依時間排序，所以保留最新的一筆)
+        const uniqueSignals = [];
+        const seenSymbols = new Set();
+        
+        for (const signal of data.data) {
+          if (!seenSymbols.has(signal.symbol)) {
+            seenSymbols.add(signal.symbol);
+            uniqueSignals.push(signal);
+          }
+        }
+
+        // 依 AI 星數排序，越高星排越前面
+        const sorted = uniqueSignals.sort((a, b) => (b.ai_stars || 0) - (a.ai_stars || 0));
         setSignals(sorted);
         setLastUpdate(new Date());
       }
