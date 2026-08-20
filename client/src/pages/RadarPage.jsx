@@ -24,6 +24,8 @@ export default function RadarPage() {
 
   useEffect(() => {
     fetchSignals();
+    const intervalId = setInterval(fetchSignals, 5000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleScan = async () => {
