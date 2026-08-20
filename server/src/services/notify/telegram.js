@@ -87,8 +87,9 @@ const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
 };
 
 export const sendEntrySignal = async (signal) => {
-  if (signal.ai_stars < 4) {
-    logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 4 星推播門檻，跳過推播。`);
+  // 依據使用者要求，將推播門檻提高至 5 星
+  if (signal.ai_stars < 5) {
+    logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 5 星推播門檻，跳過推播。`);
     return false;
   }
 
