@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import WatchList from '../components/monitor/WatchList';
 import PositionCard from '../components/monitor/PositionCard';
 import ExitAlertPanel from '../components/monitor/ExitAlertPanel';
@@ -10,22 +10,22 @@ export default function MonitorPage() {
   const [alerts, setAlerts] = useState([]);
   const [stats, setStats] = useState({ winRate: 0 });
   
+  const fetchMonitorData = useCallback(async () => {
+    try {
+      const [positionsRes, alertsRes, statsRes] = await Promise.all([
+        fetch('/api/monitor/positions').then(res => res.json()).catch(() => ({ success: false, data: [] })),
+        fetch('/api/monitor/alerts').then(res => res.json()).catch(() => ({ success: false, data: [] })),
+        fetch('/api/history/stats').then(res => res.json()).catch(() => ({ success: false, data: { winRate: 0 } }))
+      ]);
+      if (positionsRes?.success) setPositions(positionsRes.data || []);
+      if (alertsRes?.success) setAlerts(alertsRes.data || []);
+      if (statsRes?.success) setStats(statsRes.data || { winRate: 0 });
+    } catch (e) {
+      console.error('Failed to fetch monitor data', e);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchMonitorData = async () => {
-      try {
-        const [positionsRes, alertsRes, statsRes] = await Promise.all([
-          fetch('/api/monitor/positions').then(res => res.json()).catch(() => ({ success: false, data: [] })),
-          fetch('/api/monitor/alerts').then(res => res.json()).catch(() => ({ success: false, data: [] })),
-          fetch('/api/history/stats').then(res => res.json()).catch(() => ({ success: false, data: { winRate: 0 } }))
-        ]);
-        if (positionsRes?.success) setPositions(positionsRes.data || []);
-        if (alertsRes?.success) setAlerts(alertsRes.data || []);
-        if (statsRes?.success) setStats(statsRes.data || { winRate: 0 });
-      } catch (e) {
-        console.error('Failed to fetch monitor data', e);
-      }
-    };
-    
     // 初次載入
     fetchMonitorData();
     
@@ -78,10 +78,17 @@ export default function MonitorPage() {
           </div>
         </div>
         
-        <button className="btn btn-primary">
-          <Plus size={16} />
-          <span>新增持倉</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchMonitorData} className="btn btn-secondary text-xs flex items-center gap-1.5 py-2 px-3">
+            <RefreshCw size={14} />
+            <span>重新整理</span>
+          </button>
+          
+          <button className="btn btn-primary">
+            <Plus size={16} />
+            <span>新增持倉</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
