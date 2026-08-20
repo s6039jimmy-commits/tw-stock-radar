@@ -10,26 +10,6 @@ export default function MarketOverview() {
     { label: '納指100 (QQQM)', value: 0, change: 0, changePct: 0, type: 'index' }
   ]);
 
-  const fetchQQQM = async () => {
-    try {
-      // 用 allorigins CORS proxy 繞過瀏覽器跨域限制
-      const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/QQQM?interval=1d&range=1d';
-      const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`);
-      const json = await res.json();
-      const meta = json?.chart?.result?.[0]?.meta;
-      if (meta && meta.regularMarketPrice) {
-        return {
-          price: meta.regularMarketPrice,
-          change: parseFloat((meta.regularMarketPrice - meta.previousClose).toFixed(2)),
-          changePct: parseFloat(((meta.regularMarketPrice - meta.previousClose) / meta.previousClose * 100).toFixed(2))
-        };
-      }
-    } catch (e) {
-      console.error('QQQM fetch failed', e);
-    }
-    return null;
-  };
-
   const fetchDataLogic = () => {
     // IX0001
     fetch('/api/market/quote/IX0001').then(res => res.json()).then(res => {
@@ -68,15 +48,16 @@ export default function MarketOverview() {
     }).catch(() => {});
 
     // QQQM
-    fetchQQQM().then(qqqmData => {
-      if (qqqmData) {
+    fetch('/api/market/quote/QQQM').then(res => res.json()).then(res => {
+      if (res?.success && res?.data) {
         setData(prev => {
           const newData = [...prev];
-          newData[3] = { ...newData[3], value: qqqmData.price, change: qqqmData.change, changePct: qqqmData.changePct };
+          const q = res.data;
+          newData[3] = { ...newData[3], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
           return newData;
         });
       }
-    });
+    }).catch(() => {});
   };
 
   useEffect(() => {
