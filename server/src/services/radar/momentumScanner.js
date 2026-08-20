@@ -10,8 +10,9 @@ import { VOLUME_RATIO_THRESHOLD } from '../../config/index.js';
 import { addRadarSignal } from '../../db/database.js';
 import { sendEntrySignal } from '../notify/telegram.js';
 import { logger } from '../../utils/logger.js';
+import { filterUnscanned, markAsScanned } from '../../utils/scanCache.js';
 
-// 排除大型股（這些由 blueChipScanner 負責）
+// 排除大型權值股（交給 blueChipScanner 負責）
 const BLUE_CHIP_SET = new Set([
   '2330','2317','2454','2382','2412','3711','2308','2881','2882','2891',
   '2303','1301','1303','2886','2884','3034','2357','2002','1326','2885',
@@ -23,7 +24,7 @@ const BLUE_CHIP_SET = new Set([
  * 飆股雷達掃描
  */
 export const scan = async () => {
-  logger.info('Momentum Scanner', '🔍 開始執行飆股雷達掃描...');
+  logger.info('Momentum Scanner', '開始執行飆股雷達掃描...');
   const signals = [];
 
   try {
@@ -32,7 +33,7 @@ export const scan = async () => {
     
     announcements.forEach(a => {
       if (a.公司代號) {
-        // 不在這裡產生假的量比，等拿到真實報價後再計算
+        // 不在這裡抓取名稱，等抓到即時報價後再計算
         activeMap.set(a.公司代號, { symbol: a.公司代號, name: a.公司簡稱 });
       }
     });
@@ -50,13 +51,22 @@ export const scan = async () => {
     }
 
     const allActives = Array.from(activeMap.values());
-    allActives.sort(() => Math.random() - 0.5);
+    allActives.sort(() => Math.random() - 0.5); // 隨機打亂
     const candidates = allActives.filter(item => !BLUE_CHIP_SET.has(item.symbol));
+    
+    // 過濾出今天還沒掃描過的
+    const candidateSymbols = candidates.map(c => c.symbol);
+    const unscannedSymbols = filterUnscanned(candidateSymbols);
+    const unscannedCandidates = candidates.filter(c => unscannedSymbols.includes(c.symbol));
 
-    logger.info('Momentum Scanner', `篩選出 ${candidates.length} 檔候選飆股`);
+    logger.info('Momentum Scanner', `篩選出 ${candidates.length} 檔候選飆股，剩餘未掃描: ${unscannedCandidates.length} 檔`);
 
-    for (const item of candidates.slice(0, 10)) {
+    // 每次取 10 檔避免 API 限制
+    const toScan = unscannedCandidates.slice(0, 10);
+
+    for (const item of toScan) {
       try {
+        markAsScanned(item.symbol); // 標記為已掃描
         const symbol = item.symbol;
         const name = item.name || symbol;
 

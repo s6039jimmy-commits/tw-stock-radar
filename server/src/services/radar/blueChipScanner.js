@@ -9,6 +9,7 @@ import { getQuote } from '../fugle/marketData.js';
 import { addRadarSignal } from '../../db/database.js';
 import { sendEntrySignal } from '../notify/telegram.js';
 import { logger } from '../../utils/logger.js';
+import { filterUnscanned, markAsScanned } from '../../utils/scanCache.js';
 
 // 台股市值前 50 大權值股
 const BLUE_CHIP_SYMBOLS = [
@@ -43,11 +44,17 @@ export const scan = async () => {
 
     // 永遠掃描前 N 大權值股（不管今天有沒有發新聞）
     const targetSymbols = BLUE_CHIP_SYMBOLS.slice(0, BLUE_CHIP_TOP_N);
-    logger.info('BlueChip Scanner', `開始分析前 ${targetSymbols.length} 檔權值股...`);
+    const unscanned = filterUnscanned(targetSymbols);
+    
+    logger.info('BlueChip Scanner', `剩餘未掃描的大型股: ${unscanned.length} 檔`);
 
-    // 逐一分析 (一次掃 15 檔以增加覆蓋範圍)
-    for (const symbol of targetSymbols.slice(0, 15)) {
+    // 每次取 10 檔避免 API 限制
+    const toScan = unscanned.slice(0, 10);
+    
+    // 逐一分析
+    for (const symbol of toScan) {
       try {
+        markAsScanned(symbol); // 標記為已掃描
         const name = '';
         const annHeadlines = announcementMap[symbol] || [];
         
