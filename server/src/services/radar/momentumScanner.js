@@ -109,7 +109,7 @@ export const scan = async () => {
             ai_reasoning: `${result.catalyst || ''}\n\n📍 操作建議：${result.action_plan || ''}`,
             news_headline: newsItems[0]?.title || '',
             current_price: quote?.lastPrice || quote?.closePrice || 0,
-            volume_ratio: volumeRatio
+            volume_ratio: realVolumeRatio
           };
 
           signals.push(signal);

@@ -296,8 +296,8 @@ ${newsText}
     return {
       symbol,
       company_name: parsed.company_name || companyName,
-      sentiment: quant.stars >= 4 ? 'BULLISH' : quant.stars <= 2 ? 'BEARISH' : 'NEUTRAL',
-      confidence_stars: Math.max(quant.stars, parsed.confidence_stars || 1), // 取 AI 星數與量化星數的高者，讓開盤前純靠新聞題材也能拿高分
+      sentiment: parsed.sentiment || (quant.stars >= 4 ? 'BULLISH' : quant.stars <= 2 ? 'BEARISH' : 'NEUTRAL'),
+      confidence_stars: Math.max(quant.stars, parsed.confidence_stars || 1), // 取 AI 星數與量化星數的高者
       catalyst: parsed.catalyst || `量化評分 ${quant.score} 分（${quant.breakdown.join(' / ')}）`,
       action_plan: parsed.action_plan || (quant.stars >= 5 ? '量化條件極強，可考慮明日進場' : '觀望')
     };

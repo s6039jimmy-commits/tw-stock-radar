@@ -92,6 +92,12 @@ export const sendEntrySignal = async (signal) => {
     return false;
   }
 
+  // 根據使用者要求，只推播「偏多 (做多)」的進場訊號，過濾掉做空或觀望
+  if (signal.ai_sentiment !== 'BULLISH') {
+    logger.info('Telegram', `信號 ${signal.symbol} 為 ${signal.ai_sentiment}，依設定只推播做多訊號，跳過推播。`);
+    return false;
+  }
+
   const today = new Date().toISOString().split('T')[0];
   const savedDate = await getSetting('DAILY_PUSH_DATE');
   let pushCount = parseInt(await getSetting('DAILY_PUSH_COUNT') || '0', 10);
