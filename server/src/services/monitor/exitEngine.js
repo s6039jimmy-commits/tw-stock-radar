@@ -52,10 +52,16 @@ export const evaluatePosition = async (position) => {
     }
 
     // 2. 智慧移動停利 / 停損檢查 (取代原本死板的固定趴數)
-    const { checkSmartExit } = await import('./priceMonitor.js');
+    const { checkSmartExit, checkMA5Break } = await import('./priceMonitor.js');
     const smartExit = await checkSmartExit(position, currentPrice);
     if (smartExit.triggered) {
       return processExitAlert(position, smartExit.type, { price: currentPrice, reason: smartExit.reason });
+    }
+
+    // 3. 破 5 日線檢查 (強勢股生命線)
+    const ma5Exit = await checkMA5Break(position);
+    if (ma5Exit.triggered) {
+      return processExitAlert(position, 'MA5_BREAK', { price: currentPrice, reason: ma5Exit.reason });
     }
 
     return null;
