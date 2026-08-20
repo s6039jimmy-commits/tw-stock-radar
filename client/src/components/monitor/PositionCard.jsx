@@ -50,7 +50,7 @@ export default function PositionCard({ position }) {
               <input
                 type="number"
                 autoFocus
-                className="w-20 px-2 py-0.5 text-xs bg-black/40 border border-indigo-500/50 rounded outline-none text-indigo-400 font-mono"
+                className="w-24 px-2 py-1 text-sm bg-indigo-600 border border-indigo-400 text-white rounded outline-none font-bold text-center"
                 value={sharesValue}
                 onChange={(e) => setSharesValue(e.target.value)}
                 onBlur={handleSaveShares}
