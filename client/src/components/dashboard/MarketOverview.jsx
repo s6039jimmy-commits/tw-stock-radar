@@ -30,37 +30,52 @@ export default function MarketOverview() {
     return null;
   };
 
-  const fetchDataLogic = async () => {
-    const [tseRes, etf50Res, etf56Res, qqqmData] = await Promise.all([
-      fetch('/api/market/quote/IX0001').then(res => res.json()).catch(() => ({})),
-      fetch('/api/market/quote/006208').then(res => res.json()).catch(() => ({})),
-      fetch('/api/market/quote/0056').then(res => res.json()).catch(() => ({})),
-      fetchQQQM()
-    ]);
-
-    setData(prev => {
-      const newData = [...prev];
-      
-      if (tseRes?.success && tseRes?.data) {
-        const q = tseRes.data;
-        newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+  const fetchDataLogic = () => {
+    // IX0001
+    fetch('/api/market/quote/IX0001').then(res => res.json()).then(res => {
+      if (res?.success && res?.data) {
+        setData(prev => {
+          const newData = [...prev];
+          const q = res.data;
+          newData[0] = { ...newData[0], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          return newData;
+        });
       }
+    }).catch(() => {});
 
-      if (etf50Res?.success && etf50Res?.data) {
-        const q = etf50Res.data;
-        newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+    // 006208
+    fetch('/api/market/quote/006208').then(res => res.json()).then(res => {
+      if (res?.success && res?.data) {
+        setData(prev => {
+          const newData = [...prev];
+          const q = res.data;
+          newData[1] = { ...newData[1], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          return newData;
+        });
       }
+    }).catch(() => {});
 
-      if (etf56Res?.success && etf56Res?.data) {
-        const q = etf56Res.data;
-        newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+    // 0056
+    fetch('/api/market/quote/0056').then(res => res.json()).then(res => {
+      if (res?.success && res?.data) {
+        setData(prev => {
+          const newData = [...prev];
+          const q = res.data;
+          newData[2] = { ...newData[2], value: q.closePrice || q.lastPrice || 0, change: q.change || 0, changePct: q.changePercent || 0 };
+          return newData;
+        });
       }
+    }).catch(() => {});
 
+    // QQQM
+    fetchQQQM().then(qqqmData => {
       if (qqqmData) {
-        newData[3] = { ...newData[3], value: qqqmData.price, change: qqqmData.change, changePct: qqqmData.changePct };
+        setData(prev => {
+          const newData = [...prev];
+          newData[3] = { ...newData[3], value: qqqmData.price, change: qqqmData.change, changePct: qqqmData.changePct };
+          return newData;
+        });
       }
-
-      return newData;
     });
   };
 

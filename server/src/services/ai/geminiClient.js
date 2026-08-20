@@ -268,7 +268,7 @@ export const analyzeEntry = async (symbol, companyName, newsItems, priceData, re
 
   // AI 負責：根據新聞與數據撰寫「引爆點」與「操作建議」文字
   const newsText = newsItems.map((n, i) => `${i + 1}. ${n.title || n}`).join('\n');
-  const prompt = `你是台股短線交易員，請分析以下股票資料：
+    const prompt = `你是台股短線交易員，請分析以下股票資料：
 
 股票：${symbol} ${companyName}
 量化評分：${quant.score} 分 → ${quant.stars} 顆星
@@ -281,11 +281,11 @@ ${newsText}
 月營收年增率：${revenueData?.yoy || revenueData?.yearOverYearGrowth || '無資料'}%
 法人：外資 ${chipsData?.foreign > 0 ? '買超' : '賣超'} / 投信 ${chipsData?.trust > 0 ? '買超' : '賣超'}
 
-請根據以上資料，用一句白話文寫出：
-1. catalyst（引爆點）：這檔股票為什麼今天會強？
+請根據以上資料，嚴格按照標準給予 1-5 顆星評分 (confidence_stars)，並用一句白話文寫出：
+1. catalyst（引爆點）：這檔股票為什麼今天(或明天)會強？
 2. action_plan（操作建議）：明天開盤該怎麼做？
 
-注意：星數已由量化模型決定為 ${quant.stars} 星，你只需要寫 catalyst 和 action_plan，不需要給星數。`;
+注意：如果現在是開盤前（價量數據可能為0），請【完全依賴新聞題材的爆發力】來給星數！若有重磅利多新聞，請大膽給予 4~5 星。`;
 
   try {
     const result = await model.entry.generateContent(prompt);
@@ -297,7 +297,7 @@ ${newsText}
       symbol,
       company_name: parsed.company_name || companyName,
       sentiment: quant.stars >= 4 ? 'BULLISH' : quant.stars <= 2 ? 'BEARISH' : 'NEUTRAL',
-      confidence_stars: quant.stars,          // ← 永遠用量化星數，不用 AI 給的
+      confidence_stars: Math.max(quant.stars, parsed.confidence_stars || 1), // 取 AI 星數與量化星數的高者，讓開盤前純靠新聞題材也能拿高分
       catalyst: parsed.catalyst || `量化評分 ${quant.score} 分（${quant.breakdown.join(' / ')}）`,
       action_plan: parsed.action_plan || (quant.stars >= 5 ? '量化條件極強，可考慮明日進場' : '觀望')
     };
