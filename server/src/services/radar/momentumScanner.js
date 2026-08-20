@@ -30,11 +30,21 @@ export const scan = async () => {
   try {
     const announcements = await getAllMajorAnnouncements();
     const activeMap = new Map();
-    
+
+    // 依照發言日期與時間進行降冪排序 (最新的重訊排最前面)
+    announcements.sort((a, b) => {
+      const timeA = parseInt((a.發言日期 || '0') + (a.發言時間 || '0').padStart(6, '0'), 10);
+      const timeB = parseInt((b.發言日期 || '0') + (b.發言時間 || '0').padStart(6, '0'), 10);
+      return timeB - timeA;
+    });
+
     announcements.forEach(a => {
       if (a.公司代號) {
         // 不在這裡抓取名稱，等抓到即時報價後再計算
-        activeMap.set(a.公司代號, { symbol: a.公司代號, name: a.公司簡稱 });
+        // 因為已經依時間降冪排序，Map 會自動保留最新的插入順序
+        if (!activeMap.has(a.公司代號)) {
+          activeMap.set(a.公司代號, { symbol: a.公司代號, name: a.公司簡稱 });
+        }
       }
     });
 
@@ -51,7 +61,6 @@ export const scan = async () => {
     }
 
     const allActives = Array.from(activeMap.values());
-    allActives.sort(() => Math.random() - 0.5); // 隨機打亂
     const candidates = allActives.filter(item => !BLUE_CHIP_SET.has(item.symbol));
     
     // 過濾出今天還沒掃描過的
@@ -59,7 +68,7 @@ export const scan = async () => {
     const unscannedSymbols = filterUnscanned(candidateSymbols);
     const unscannedCandidates = candidates.filter(c => unscannedSymbols.includes(c.symbol));
 
-    logger.info('Momentum Scanner', `篩選出 ${candidates.length} 檔候選飆股，剩餘未掃描: ${unscannedCandidates.length} 檔`);
+    logger.info('Momentum Scanner', `最新候選飆股: ${candidates.length} 檔，剩餘未掃描: ${unscannedCandidates.length} 檔`);
 
     // 每次取 10 檔避免 API 限制
     const toScan = unscannedCandidates.slice(0, 10);
