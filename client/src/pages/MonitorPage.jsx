@@ -25,7 +25,13 @@ export default function MonitorPage() {
         console.error('Failed to fetch monitor data', e);
       }
     };
+    
+    // 初次載入
     fetchMonitorData();
+    
+    // 設定每 5 秒自動更新一次報價
+    const interval = setInterval(fetchMonitorData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const totalPnl = positions.reduce((acc, pos) => acc + (pos.current_price - pos.entry_price), 0);
