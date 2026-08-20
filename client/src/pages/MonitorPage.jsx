@@ -74,30 +74,61 @@ export default function MonitorPage() {
 
   return (
     <div className="flex flex-col gap-6 relative">
-      {/* 新增持倉 Modal */}
+      {/* 新增持倉 Modal (霓虹科技感) */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1b26] border border-white/10 rounded-xl p-6 w-full max-w-md flex flex-col gap-4 shadow-2xl">
-            <h3 className="text-xl font-bold flex items-center gap-2"><Plus size={20} className="text-indigo-400" /> 新增持倉監控</h3>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0a0a0f] border border-cyan-500/50 rounded-xl p-6 w-full max-w-md flex flex-col gap-4 shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+            <h3 className="text-xl font-bold flex items-center gap-2 text-cyan-400 tracking-wider">
+              <Plus size={20} className="text-cyan-400" /> 新增持倉監控
+            </h3>
             
             <div className="flex flex-col gap-1 mt-2">
-              <label className="text-xs text-secondary">股票代號</label>
-              <input type="text" className="bg-black/40 border border-white/10 rounded px-3 py-2 outline-none focus:border-indigo-500 font-mono" placeholder="例: 2317" value={addForm.symbol} onChange={e => setAddForm({...addForm, symbol: e.target.value})} />
+              <label className="text-xs text-cyan-300/70 tracking-widest">股票代號</label>
+              <input 
+                type="text" 
+                className="bg-black border border-cyan-500/30 text-cyan-50 rounded px-3 py-2 outline-none focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(6,182,212,0.4)] transition-all font-mono placeholder:text-cyan-800/50" 
+                placeholder="例: 2317" 
+                value={addForm.symbol} 
+                onChange={e => setAddForm({...addForm, symbol: e.target.value})} 
+              />
             </div>
             
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-secondary">進場成本價 (NT$)</label>
-              <input type="number" step="0.01" className="bg-black/40 border border-white/10 rounded px-3 py-2 outline-none focus:border-indigo-500 font-mono" placeholder="例: 150.5" value={addForm.entry_price} onChange={e => setAddForm({...addForm, entry_price: e.target.value})} />
+              <label className="text-xs text-cyan-300/70 tracking-widest">進場成本價 (NT$)</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                className="bg-black border border-cyan-500/30 text-cyan-50 rounded px-3 py-2 outline-none focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(6,182,212,0.4)] transition-all font-mono placeholder:text-cyan-800/50" 
+                placeholder="例: 150.5" 
+                value={addForm.entry_price} 
+                onChange={e => setAddForm({...addForm, entry_price: e.target.value})} 
+              />
             </div>
             
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-secondary">購買股數 (1張 = 1000股)</label>
-              <input type="number" className="bg-black/40 border border-white/10 rounded px-3 py-2 outline-none focus:border-indigo-500 font-mono" value={addForm.shares} onChange={e => setAddForm({...addForm, shares: e.target.value})} />
+              <label className="text-xs text-cyan-300/70 tracking-widest">購買股數 (1張 = 1000股)</label>
+              <input 
+                type="number" 
+                className="bg-black border border-cyan-500/30 text-cyan-50 rounded px-3 py-2 outline-none focus:border-cyan-400 focus:shadow-[0_0_10px_rgba(6,182,212,0.4)] transition-all font-mono placeholder:text-cyan-800/50" 
+                value={addForm.shares} 
+                onChange={e => setAddForm({...addForm, shares: e.target.value})} 
+              />
             </div>
             
             <div className="flex justify-end gap-3 mt-4">
-              <button className="px-4 py-2 text-sm text-secondary hover:text-white transition-colors" onClick={() => setShowAddModal(false)}>取消</button>
-              <button className="btn btn-primary" onClick={submitAddPosition} disabled={!addForm.symbol || !addForm.entry_price}>確定新增</button>
+              <button 
+                className="px-4 py-2 text-sm text-cyan-500 border border-transparent hover:border-cyan-500/50 hover:text-cyan-300 hover:shadow-[0_0_10px_rgba(6,182,212,0.2)] rounded transition-all" 
+                onClick={() => setShowAddModal(false)}
+              >
+                取消
+              </button>
+              <button 
+                className="px-5 py-2 text-sm font-bold bg-cyan-500 text-black border border-cyan-400 rounded shadow-[0_0_10px_rgba(6,182,212,0.5)] hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.8)] disabled:opacity-50 disabled:shadow-none transition-all" 
+                onClick={submitAddPosition} 
+                disabled={!addForm.symbol || !addForm.entry_price}
+              >
+                確定新增
+              </button>
             </div>
           </div>
         </div>
