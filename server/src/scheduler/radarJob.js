@@ -3,6 +3,7 @@ import { RADAR_SCAN_INTERVAL_MIN } from '../config/index.js';
 import { isMarketOpen } from '../utils/helpers.js';
 import { scan as scanBlueChip } from '../services/radar/blueChipScanner.js';
 import { scan as scanMomentum } from '../services/radar/momentumScanner.js';
+import { scan as scanCustom } from '../services/radar/customScanner.js';
 import { scanNightSession } from '../services/radar/nightScanner.js';
 import { generatePreMarketReport } from '../services/radar/preMarketScanner.js';
 import { runPostMarketScan } from '../services/radar/postMarketScanner.js';
@@ -16,6 +17,15 @@ export const runBlueChipScan = async () => {
 
 export const runMomentumScan = async () => {
   await scanMomentum();
+};
+
+export const runCustomScan = async () => {
+  logger.info('Scheduler', '🔍 啟動 08:30 使用者專屬選股雷達...');
+  try {
+    await scanCustom();
+  } catch (e) {
+    logger.error('Scheduler', '專屬選股雷達失敗', e.message);
+  }
 };
 
 export const runPreMarketScan = async () => {
@@ -67,8 +77,11 @@ export const startRadarJobs = () => {
   // 夜盤掃描改為定點回報：美股開盤後(22:30)、盤中(01:30)、收盤結算(05:30)
   cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
   
-  // 盤前早報 (08:30)
-  cron.schedule('30 8 * * 1-5', runPreMarketScan, options);
+  // 盤前報告 + 專屬選股雷達 (08:30) — 兩者並行
+  cron.schedule('30 8 * * 1-5', () => {
+    runPreMarketScan();
+    runCustomScan(); // 🎯 使用者專屬三層過濾選股
+  }, options);
   
   // 盤後統計總結 (14:00)
   cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);

@@ -225,3 +225,26 @@ export const sendTestMessage = async (customToken = null, customChatId = null) =
     return { success: false, message: '發送失敗: ' + error.message };
   }
 };
+
+/**
+ * 🎯 使用者專屬選股雷達推播 (customScanner 專用)
+ * 只在 AI 審核通過 5 星才呼叫此函式
+ */
+export const sendCustomSignal = async (signal) => {
+  const html = `🎯 <b>【專屬選股雷達】5 星強勢訊號</b>
+
+<b>${signal.symbol}</b> ${signal.name !== signal.symbol ? signal.name : ''}
+💰 昨收：<code>NT$${signal.current_price}</code>
+📌 <b>利多理由：</b>${signal.ai_reasoning}
+📊 <b>籌碼：</b>${signal.extra || ''}
+
+⚡ <b>條件全通過：</b>
+  ✅ 股價 ≥ 50 元
+  ✅ 外資 + 投信同步買超
+  ✅ 近 20 日最高收盤（突破月高點）
+  ✅ AI 審核：實質業績利多（5 星）
+
+⚠️ <i>此為盤前訊號，開盤後請自行確認量能與走勢後再決策。</i>`;
+
+  return sendHTML(html);
+};
