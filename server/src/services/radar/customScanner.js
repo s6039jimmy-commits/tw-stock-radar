@@ -89,70 +89,79 @@ const fetchAllChips = async () => {
 };
 
 // ──────────────────────────────────────────────
-// 取得股票近 20 日收盤價陣列 (T-1 為最後一筆)
+// 取得股票近 20 日 K 線資料 (T-1 為最後一筆)
 // ──────────────────────────────────────────────
-const getPast20DaysClose = async (symbol) => {
+const getPast20DaysData = async (symbol) => {
   try {
     const toDate = new Date();
-    toDate.setDate(toDate.getDate() - 1); // T-1
+    toDate.setDate(toDate.getDate() - 1);
     const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - 40); // 多抓 40 天保留足夠交易日
+    fromDate.setDate(fromDate.getDate() - 40);
 
     const from = fromDate.toISOString().split('T')[0];
     const to = toDate.toISOString().split('T')[0];
 
     const candles = await getHistoricalCandles(symbol, from, to);
-    if (!candles || candles.length < 5) return null;
+    if (!candles || candles.length < 10) return null;
 
-    // 取最後 20 個交易日的收盤
-    const closes = candles.slice(-20).map(c => c.close);
-    return closes;
+    const recent = candles.slice(-20);
+    return {
+      closes: recent.map(c => c.close),
+      volumes: recent.map(c => c.volume || 0)
+    };
   } catch (e) {
     return null;
   }
 };
 
 // ──────────────────────────────────────────────
-// Layer 1：鐵血量化濾網
+// Layer 1：量化濾網
+//
+// 校準邏輯（目標：每週 1~2 檔通過 AI 後推播）
+//   全市場 ~1800 檔
+//   -> 條件1 (股價>=50)：~800 檔
+//   -> 條件2 (日量>500張)：~500 檔
+//   -> 條件3 (法人至少一方買超，另一方不大賣)：~80 檔
+//   -> 條件4 (昨收在近20日高點97%內)：~10~20 檔
+//   -> Layer2 AI 5星：0~1 檔/天 = 1~2 檔/週
 // ──────────────────────────────────────────────
 const passesQuantFilter = async (symbol, chipsMap) => {
-  // 取籌碼
   const chips = chipsMap.get(symbol);
   if (!chips) return false;
 
-  // 條件 3：外資 > 0 且 投信 > 0 (先做，便宜的判斷優先，省 API 呼叫)
-  if (chips.foreignBuyLot <= 0 || chips.trustBuyLot <= 0) return false;
+  // 條件 3（先做，不用呼叫 API）：
+  // 法人共識 — 至少一方買超 > 0，另一方不能大幅賣超(> -500張)
+  const fBuy = chips.foreignBuyLot;
+  const tBuy = chips.trustBuyLot;
+  if (!(fBuy > 0 || tBuy > 0)) return false;
+  if (fBuy < -500 || tBuy < -500) return false;
 
-  // 取近 20 日 K 線 (含昨日收盤、昨日成交量)
-  const closes = await getPast20DaysClose(symbol);
-  if (!closes || closes.length < 5) return false;
+  // 取近 20 日 K 線
+  const data = await getPast20DaysData(symbol);
+  if (!data) return false;
 
+  const { closes, volumes } = data;
   const yesterdayClose = closes[closes.length - 1];
 
   // 條件 1：昨日收盤 >= 50 元
   if (yesterdayClose < 50) return false;
 
-  // 條件 4：昨日收盤 == 近 20 日最高收盤 (突破近一個月高點)
-  const max20 = Math.max(...closes);
-  if (yesterdayClose < max20) return false;
+  // 條件 2：昨日成交量 > 500 張（流動性保護）
+  const yesterdayVolumeLot = volumes[volumes.length - 1] / 1000;
+  if (yesterdayVolumeLot < 500) return false;
 
-  // 條件 2：昨日成交量 > 1,000 張
-  // getHistoricalCandles 回傳的 volume 單位是「股」，除以 1000 = 張
-  // 重新取 candles volume（需重取，或直接用 candles 陣列）
-  // 我們用快照 volume 估算（此處使用已有的 candles 數據）
-  // 由於 getHistoricalCandles 不一定含 volume，先用籌碼總買超 > -2000張 的流動性當 fallback
-  // TODO: 若 Fugle 歷史 K 線有 volume 欄位則用 candles[-1].volume / 1000 > 1000
-  // 暫時用「外資+投信+自營」總法人成交量絕對值 > 50 張來確認有流動性（保守）
-  // 真實情境請確認 candles 欄位是否含 volume
-  const hasLiquidity = Math.abs(chips.foreignBuyLot) + Math.abs(chips.trustBuyLot) > 0;
-  if (!hasLiquidity) return false;
+  // 條件 4：昨收在近 20 日最高收盤的 97% 以上（接近突破）
+  const max20 = Math.max(...closes);
+  if (yesterdayClose < max20 * 0.97) return false;
 
   return {
     symbol,
     yesterdayClose,
+    yesterdayVolumeLot: Math.round(yesterdayVolumeLot),
     foreignBuyLot: chips.foreignBuyLot,
     trustBuyLot: chips.trustBuyLot,
-    max20
+    max20,
+    distToHigh: ((yesterdayClose / max20) * 100).toFixed(1) + '%'
   };
 };
 
