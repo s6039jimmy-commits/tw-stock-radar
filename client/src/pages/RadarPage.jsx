@@ -66,6 +66,7 @@ export default function RadarPage() {
     }
   };
 
+  const customSignals = signals.filter(s => s.signal_type === 'CUSTOM_STRATEGY');
   const blueChipSignals = signals.filter(s => s.signal_type === 'BLUE_CHIP');
   const momentumSignals = signals.filter(s => s.signal_type === 'MOMENTUM');
 
@@ -80,7 +81,7 @@ export default function RadarPage() {
             AI 全市場雷達
           </h2>
           <p className="text-sm text-secondary mt-1">
-            同時掃描大型權值股 + 全市場爆量飆股，AI 深度評分，5星訊號直接推 Telegram
+            專屬鐵血濾網 + 權值股 + 動能飆股，AI 深度評分，5星強勢推播 Telegram
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -115,8 +116,35 @@ export default function RadarPage() {
             <Zap className="absolute inset-0 m-auto text-yellow-400" size={24} />
           </div>
           <p className="text-center text-base font-medium">AI 正在全市場掃描中...</p>
-          <p className="text-xs opacity-60 text-center">同時分析台積電等五大龍頭 + 全市場爆量飆股<br />約需 90 秒，有結果將自動顯示</p>
+          <p className="text-xs opacity-60 text-center">同時分析鐵血專屬策略 + 全市場爆量飆股<br />約需 90 秒，有結果將自動顯示</p>
         </div>
+      )}
+
+      {/* 專屬鐵血濾網區塊 */}
+      {(customSignals.length > 0 || !isScanning) && (
+        <section>
+          <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
+            <Zap size={18} className="text-red-500" />
+            專屬鐵血狙擊濾網
+            {customSignals.length > 0 && (
+              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-normal">
+                {customSignals.length} 筆
+              </span>
+            )}
+          </h3>
+          {customSignals.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {customSignals.map(signal => (
+                <RadarSignalCard key={signal.id || signal.symbol} signal={signal} />
+              ))}
+            </div>
+          ) : !isScanning && (
+            <div className="card-glass py-10 flex flex-col items-center text-muted text-sm">
+              <Zap size={28} className="mb-3 opacity-40 text-red-500/50" />
+              <p>尚無符合極嚴格鐵血濾網的標的 (寧缺勿濫)</p>
+            </div>
+          )}
+        </section>
       )}
 
       {/* 大型權值股區塊 */}
