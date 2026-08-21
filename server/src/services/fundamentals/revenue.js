@@ -9,9 +9,11 @@ const fetchTwseRevenue = async () => {
   try {
     const res = await fetch('https://openapi.twse.com.tw/v1/opendata/t187ap05_L');
     if (!res.ok) return [];
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) return [];
     return await res.json();
   } catch (e) {
-    logger.error('Revenue', '上市營收抓取失敗', e);
+    logger.error('Revenue', '上市營收抓取失敗', e.message);
     return [];
   }
 };
@@ -20,9 +22,11 @@ const fetchTpexRevenue = async () => {
   try {
     const res = await fetch('https://www.tpex.org.tw/openapi/v1/mops_t187ap05_O');
     if (!res.ok) return [];
+    const contentType = res.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) return [];
     return await res.json();
   } catch (e) {
-    logger.error('Revenue', '上櫃營收抓取失敗', e);
+    logger.error('Revenue', '上櫃營收抓取失敗', e.message);
     return [];
   }
 };

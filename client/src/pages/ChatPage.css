@@ -193,7 +193,7 @@
   flex: 1;
   resize: none;
   padding: 12px 16px;
-  font-size: 16px; /* Must be 16px to prevent iOS Safari auto-zoom */
+  font-size: 16px !important; /* Force 16px to prevent iOS Safari auto-zoom */
   background-color: rgba(248, 250, 252, 0.9);
   color: #0f172a;
   border: 1px solid transparent;
