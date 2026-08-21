@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Bot, Send, Trash2, Sparkles, TrendingUp, ShieldAlert, FileText, ArrowRight, User } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Bot, Send, Trash2, Sparkles, TrendingUp, ShieldAlert, FileText, ArrowRight, User, ArrowLeft } from 'lucide-react';
 import './ChatPage.css';
 
 export default function ChatPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const stockContext = location.state?.stockContext || null;
 
   const [messages, setMessages] = useState([
@@ -130,6 +131,13 @@ export default function ChatPage() {
         {/* 對話框 Header */}
         <div className="chat-header">
           <div className="chat-header-left">
+            <button 
+              onClick={() => navigate(-1)} 
+              className="btn btn-ghost p-1 mr-1"
+              title="返回"
+            >
+              <ArrowLeft size={20} />
+            </button>
             <div className="chat-avatar">
               <Bot size={20} />
             </div>
