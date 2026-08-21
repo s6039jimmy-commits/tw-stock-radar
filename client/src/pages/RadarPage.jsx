@@ -42,19 +42,20 @@ export default function RadarPage() {
   const handleScan = async () => {
     setIsScanning(true);
     try {
-      // 同時觸發大型股 + 動能飆股雷達
-      await fetch('/api/radar/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'all' })
-      });
-      // 30 / 60 / 90 秒各輪詢一次
-      setTimeout(fetchSignals, 30000);
-      setTimeout(fetchSignals, 60000);
-      setTimeout(async () => {
-        await fetchSignals();
-        setIsScanning(false);
-      }, 90000);
+      // 觸發自訂策略、大型股、動能飆股雷達
+      await Promise.all([
+        fetch('/api/radar/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'custom' })
+        }),
+        fetch('/api/radar/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'momentum' })
+        })
+      ]);
+      await fetchSignals();
     } catch (e) {
       console.error(e);
       setIsScanning(false);

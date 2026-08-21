@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getRadarSignals } from '../db/database.js';
-import { runBlueChipScan, runMomentumScan } from '../scheduler/radarJob.js';
+import { runBlueChipScan, runMomentumScan, runCustomScan } from '../scheduler/radarJob.js';
 
 const router = Router();
 
@@ -22,6 +22,7 @@ router.post('/scan', async (req, res) => {
   // 異步執行，不阻塞 HTTP 回應
   if (type === 'blue_chip' || type === 'all') runBlueChipScan().catch(e => console.error(e));
   if (type === 'momentum' || type === 'all') runMomentumScan().catch(e => console.error(e));
+  if (type === 'custom' || type === 'all') runCustomScan().catch(e => console.error(e));
   res.json({ success: true, message: 'Scan triggered in background' });
 });
 
