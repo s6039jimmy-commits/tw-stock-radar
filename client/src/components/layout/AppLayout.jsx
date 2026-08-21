@@ -10,7 +10,7 @@ export default function AppLayout({ children }) {
   return (
     <div className="flex bg-transparent min-h-screen relative">
       <Sidebar />
-      <div className="flex-1 main-content flex flex-col min-w-0">
+      <div className={`flex-1 main-content flex flex-col min-w-0 ${isChatPage ? '!pb-0' : ''}`}>
         {!isChatPage && <Header />}
         <main className={`flex-1 w-full animate-fade-in ${isChatPage ? '' : 'page-container'}`}>
           {children}

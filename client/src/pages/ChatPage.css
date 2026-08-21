@@ -1,8 +1,8 @@
 /* ChatPage specific styling */
 .chat-page-container {
   width: 100%;
-  height: calc(100vh - 60px); /* fallback */
-  height: calc(100dvh - 60px); /* 60px for bottom nav */
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background-color: transparent; /* Allow honeycomb background to show */
