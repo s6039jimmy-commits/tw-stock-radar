@@ -28,6 +28,15 @@ import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { GEMINI_API_KEY } from '../../config/index.js';
 import fetch from 'node-fetch';
 
+// 排除前 50 大權值股 (大盤)
+const BLUE_CHIPS = new Set([
+  '2330','2317','2454','2382','2412','3711','2308','2881','2882','2891',
+  '2303','1301','1303','2886','2884','3034','2357','2002','1326','2885',
+  '5880','2880','2892','2883','3037','2912','1101','2887','5871','2395',
+  '3008','2615','4904','6669','2327','4938','2603','1216','2301','8046',
+  '2105','9910','6505','3231','2379','6415','3045','2345','1590','2207'
+]);
+
 // ──────────────────────────────────────────────
 // Gemini 模型初始化（與主 client 分開，prompt 獨立）
 // ──────────────────────────────────────────────
@@ -126,6 +135,9 @@ const getPast20DaysData = async (symbol) => {
 //   -> Layer2 AI 5星：0~1 檔/天 = 1~2 檔/週
 // ──────────────────────────────────────────────
 const passesQuantFilter = async (symbol, chipsMap) => {
+  // 排除前 50 大權值股
+  if (BLUE_CHIPS.has(symbol)) return false;
+
   const chips = chipsMap.get(symbol);
   if (!chips) return false;
 
