@@ -4,10 +4,12 @@ import RadarSignalCard from '../components/dashboard/RadarSignalCard';
 
 export default function RadarPage() {
   const [isScanning, setIsScanning] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [signals, setSignals] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
 
   const fetchSignals = async () => {
+    setIsRefreshing(true);
     try {
       const res = await fetch('/api/radar/signals');
       const data = await res.json();
@@ -30,6 +32,8 @@ export default function RadarPage() {
       }
     } catch (e) {
       console.error('Failed to fetch signals', e);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -85,8 +89,8 @@ export default function RadarPage() {
               最後更新 {lastUpdate.toLocaleTimeString('zh-TW')}
             </span>
           )}
-          <button onClick={fetchSignals} className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5">
-            <RefreshCw size={13} />
+          <button onClick={fetchSignals} disabled={isRefreshing} className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-1.5">
+            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
             更新
           </button>
           <button
