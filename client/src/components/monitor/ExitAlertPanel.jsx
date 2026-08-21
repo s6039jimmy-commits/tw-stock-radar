@@ -4,10 +4,16 @@ import { formatTime } from '../../utils/formatters';
 export default function ExitAlertPanel({ alerts = [] }) {
   return (
     <div className="card-glass flex flex-col h-full border-red-500/20">
-      <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-red-400">
-        <AlertTriangle size={20} />
-        出場警示
-      </h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-lg flex items-center gap-2 text-red-400">
+          <AlertTriangle size={20} />
+          出場警示
+        </h3>
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+          <span className="text-[10px] text-green-400 font-medium">系統監控中</span>
+        </div>
+      </div>
       
       <div className="flex flex-col gap-3 overflow-y-auto pr-2">
         {alerts.length === 0 ? (

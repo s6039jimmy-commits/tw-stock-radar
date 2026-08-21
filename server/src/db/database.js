@@ -1,4 +1,4 @@
-import initSqlJs from 'sql.js';
+import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -22,17 +22,14 @@ export const initDatabase = async () => {
     try {
       const dir = path.dirname(DB_PATH);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      const SQL = await initSqlJs();
-      if (fs.existsSync(DB_PATH)) {
-        const buffer = fs.readFileSync(DB_PATH);
-        sqliteDb = new SQL.Database(buffer);
-      } else {
-        sqliteDb = new SQL.Database();
-      }
+      
+      sqliteDb = new Database(DB_PATH);
+      // Ensure WAL mode for better concurrency
+      sqliteDb.pragma('journal_mode = WAL');
+      
       const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
-      sqliteDb.run(schema);
-      setInterval(() => saveDatabase(), 30000);
-      logger.info('Database', '連線至本地 SQLite 資料庫');
+      sqliteDb.exec(schema);
+      logger.info('Database', '連線至本地 SQLite 資料庫 (better-sqlite3)');
     } catch (e) {
       logger.error('Database', 'SQLite 初始化失敗', e);
       throw e;
@@ -41,24 +38,16 @@ export const initDatabase = async () => {
 };
 
 export const saveDatabase = () => {
-  if (dbType === 'sqlite' && sqliteDb) {
-    try {
-      const data = sqliteDb.export();
-      fs.writeFileSync(DB_PATH, Buffer.from(data));
-    } catch (e) {
-      logger.error('Database', '儲存 SQLite 失敗', e);
-    }
-  }
+  // better-sqlite3 writes to disk automatically. No need for manual save.
 };
 
 // ── 通用查詢封裝 ──
 
 const runQuery = async (sql, params = []) => {
   if (dbType === 'sqlite') {
-    sqliteDb.run(sql, params);
-    saveDatabase();
-    const result = sqliteDb.exec("SELECT last_insert_rowid() as id");
-    return { lastInsertRowid: result.length > 0 ? result[0].values[0][0] : null };
+    const stmt = sqliteDb.prepare(sql);
+    const result = stmt.run(...params);
+    return { lastInsertRowid: result.lastInsertRowid };
   } else {
     throw new Error('Supabase 不支援 runQuery');
   }
@@ -66,22 +55,20 @@ const runQuery = async (sql, params = []) => {
 
 const getAll = async (sql, params = []) => {
   if (dbType === 'sqlite') {
-    const result = sqliteDb.exec(sql, params);
-    if (result.length === 0) return [];
-    const columns = result[0].columns;
-    return result[0].values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => { obj[col] = row[i]; });
-      return obj;
-    });
+    const stmt = sqliteDb.prepare(sql);
+    return stmt.all(...params);
   } else {
     throw new Error('Supabase 不支援 getAll');
   }
 };
 
 const getOne = async (sql, params = []) => {
-  const rows = await getAll(sql, params);
-  return rows.length > 0 ? rows[0] : null;
+  if (dbType === 'sqlite') {
+    const stmt = sqliteDb.prepare(sql);
+    return stmt.get(...params) || null;
+  } else {
+    throw new Error('Supabase 不支援 getOne');
+  }
 };
 
 // ============ 倉位操作 ============
@@ -95,7 +82,7 @@ export const addPosition = async (data) => {
       entry_date: data.entry_date,
       entry_reason: data.entry_reason || null,
       ai_stars: data.ai_stars || null,
-      shares: data.shares || 1000,                   // ← 加入股數，預設 1000
+      shares: data.shares || 1000,
       status: 'MONITORING',
       stop_loss_pct: data.stop_loss_pct ?? -7.0,
       take_profit_pct: data.take_profit_pct ?? 15.0,
@@ -104,11 +91,21 @@ export const addPosition = async (data) => {
     const { error } = await supabase.from('positions').insert([insertData]);
     if (error) logger.error('Database', 'addPosition Error', error);
   } else {
-    await runQuery(`
-      INSERT INTO positions (symbol, name, entry_price, entry_date, entry_reason, ai_stars, stop_loss_pct, take_profit_pct, ma5_exit)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [data.symbol, data.name, data.entry_price, data.entry_date, data.entry_reason || null,
-        data.ai_stars || null, data.stop_loss_pct || -7.0, data.take_profit_pct || 15.0, data.ma5_exit ?? 1]);
+    return await runQuery(`
+      INSERT INTO positions (symbol, name, entry_price, entry_date, entry_reason, ai_stars, shares, stop_loss_pct, take_profit_pct, ma5_exit)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      data.symbol, 
+      data.name, 
+      data.entry_price, 
+      data.entry_date, 
+      data.entry_reason || null,
+      data.ai_stars || null, 
+      data.shares || 1000,
+      data.stop_loss_pct ?? -7.0, 
+      data.take_profit_pct ?? 15.0, 
+      data.ma5_exit ?? 1
+    ]);
   }
 };
 

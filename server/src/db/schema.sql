@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS positions (
   entry_date TEXT NOT NULL,
   entry_reason TEXT,
   ai_stars INTEGER,
+  shares INTEGER DEFAULT 1000,
   stop_loss_pct REAL DEFAULT -7.0,
   take_profit_pct REAL DEFAULT 15.0,
   ma5_exit INTEGER DEFAULT 1,

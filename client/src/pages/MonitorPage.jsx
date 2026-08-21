@@ -76,20 +76,20 @@ export default function MonitorPage() {
     <div className="flex flex-col gap-6 relative">
       {/* 新增持倉 Modal (明亮科技感) */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white/95 backdrop-blur-xl border border-white/50 rounded-2xl p-6 w-full max-w-md flex flex-col gap-5 shadow-[0_10px_40px_rgba(0,0,0,0.1)]">
-            <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-              <div className="p-1.5 bg-indigo-500/10 rounded-lg">
-                <Plus size={20} className="text-indigo-600" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl p-6 w-full max-w-md flex flex-col gap-5 shadow-[0_0_30px_rgba(99,102,241,0.2)]">
+            <h3 className="text-xl font-bold flex items-center gap-2 text-white">
+              <div className="p-1.5 bg-indigo-500/20 rounded-lg">
+                <Plus size={20} className="text-indigo-400 drop-shadow-[0_0_5px_rgba(99,102,241,0.8)]" />
               </div>
               新增持倉監控
             </h3>
             
             <div className="flex flex-col gap-1.5 mt-2">
-              <label className="text-xs font-bold text-slate-500 tracking-wider">股票代號</label>
+              <label className="text-xs font-bold text-indigo-300/70 tracking-wider">股票代號</label>
               <input 
                 type="text" 
-                className="bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono text-sm placeholder:text-slate-400" 
+                className="bg-slate-800/50 border border-slate-700 text-white rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-slate-800 focus:ring-1 focus:ring-indigo-500 transition-all font-mono text-sm placeholder:text-slate-500" 
                 placeholder="例: 2317" 
                 value={addForm.symbol} 
                 onChange={e => setAddForm({...addForm, symbol: e.target.value})} 
@@ -97,11 +97,11 @@ export default function MonitorPage() {
             </div>
             
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-500 tracking-wider">進場成本價 (NT$)</label>
+              <label className="text-xs font-bold text-indigo-300/70 tracking-wider">進場成本價 (NT$)</label>
               <input 
                 type="number" 
                 step="0.01" 
-                className="bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono text-sm placeholder:text-slate-400" 
+                className="bg-slate-800/50 border border-slate-700 text-white rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-slate-800 focus:ring-1 focus:ring-indigo-500 transition-all font-mono text-sm placeholder:text-slate-500" 
                 placeholder="例: 150.5" 
                 value={addForm.entry_price} 
                 onChange={e => setAddForm({...addForm, entry_price: e.target.value})} 
@@ -109,24 +109,24 @@ export default function MonitorPage() {
             </div>
             
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-500 tracking-wider">購買股數 (1張 = 1000股)</label>
+              <label className="text-xs font-bold text-indigo-300/70 tracking-wider">購買股數 (1張 = 1000股)</label>
               <input 
                 type="number" 
-                className="bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono text-sm placeholder:text-slate-400" 
+                className="bg-slate-800/50 border border-slate-700 text-white rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 focus:bg-slate-800 focus:ring-1 focus:ring-indigo-500 transition-all font-mono text-sm placeholder:text-slate-500" 
                 value={addForm.shares} 
                 onChange={e => setAddForm({...addForm, shares: e.target.value})} 
               />
             </div>
             
-            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
+            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-800">
               <button 
-                className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" 
+                className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors" 
                 onClick={() => setShowAddModal(false)}
               >
                 取消
               </button>
               <button 
-                className="px-5 py-2 text-sm font-bold bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none transition-all" 
+                className="px-5 py-2 text-sm font-bold bg-indigo-600/80 text-white border border-indigo-500/50 rounded-lg shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:shadow-[0_0_25px_rgba(99,102,241,0.6)] hover:bg-indigo-500 disabled:opacity-50 disabled:shadow-none transition-all" 
                 onClick={submitAddPosition} 
                 disabled={!addForm.symbol || !addForm.entry_price}
               >

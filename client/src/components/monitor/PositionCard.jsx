@@ -5,6 +5,8 @@ import { Target, TrendingDown, TrendingUp, AlertTriangle, Edit2 } from 'lucide-r
 export default function PositionCard({ position }) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [sharesValue, setSharesValue] = useState(position?.shares || 1000);
+  const [isEditingEntryPrice, setIsEditingEntryPrice] = useState(false);
+  const [entryPriceValue, setEntryPriceValue] = useState(position?.entry_price || 0);
 
   if (!position) return null;
 
@@ -36,6 +38,24 @@ export default function PositionCard({ position }) {
       }
     } else {
       setSharesValue(shares);
+    }
+  };
+
+  const handleSaveEntryPrice = async () => {
+    setIsEditingEntryPrice(false);
+    const val = parseFloat(entryPriceValue);
+    if (!isNaN(val) && val > 0 && val !== position.entry_price) {
+      try {
+        await fetch(`/api/monitor/positions/${position.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entry_price: val })
+        });
+      } catch (e) {
+        console.error('Failed to update entry price', e);
+      }
+    } else {
+      setEntryPriceValue(position.entry_price);
     }
   };
 
@@ -77,9 +97,29 @@ export default function PositionCard({ position }) {
       </div>
       
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-black/20 p-3 rounded-lg flex flex-col gap-1">
+        <div className="bg-black/20 p-3 rounded-lg flex flex-col gap-1 group">
           <span className="text-xs text-secondary flex items-center gap-1"><Target size={12}/> 進場均價</span>
-          <span className="font-mono font-medium">{formatPrice(position.entry_price)}</span>
+          {isEditingEntryPrice ? (
+            <input
+              type="number"
+              step="0.01"
+              autoFocus
+              className="w-full px-2 py-1 text-sm bg-indigo-600 border border-indigo-400 text-white rounded outline-none font-bold"
+              value={entryPriceValue}
+              onChange={(e) => setEntryPriceValue(e.target.value)}
+              onBlur={handleSaveEntryPrice}
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveEntryPrice()}
+            />
+          ) : (
+            <span 
+              className="font-mono font-medium flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition-colors"
+              onClick={() => setIsEditingEntryPrice(true)}
+              title="點擊修改進場價"
+            >
+              {formatPrice(position.entry_price)}
+              <Edit2 size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+            </span>
+          )}
         </div>
         <div className="bg-black/20 p-3 rounded-lg flex flex-col gap-1 border border-blue-500/20">
           <span className="text-xs text-accent-blue flex items-center gap-1"><TrendingUp size={12}/> 目前報價</span>
