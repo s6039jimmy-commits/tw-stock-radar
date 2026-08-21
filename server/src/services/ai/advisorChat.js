@@ -90,27 +90,9 @@ ${news.map((n, i) => `${i + 1}. ${n.title}`).join('\n')}
       }
     }
 
-    // 格式化並過濾歷史對話，確保以 user 開頭且交替
+    // 由於 AI 容易被過去的對話歷史污染（例如剛才瞎掰的摩根大通），
+    // 我們直接捨棄所有歷史紀錄，每次對話都當作全新的獨立查詢。
     let validHistory = [];
-    for (const item of history) {
-      const role = item.role === 'user' ? 'user' : 'model';
-      const text = item.text || item.content || '';
-      
-      if (validHistory.length === 0 && role === 'model') continue; // 捨棄開頭的 model 訊息
-      
-      if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === role) {
-        // 同角色合併
-        validHistory[validHistory.length - 1].parts[0].text += '\n' + text;
-      } else {
-        validHistory.push({ role, parts: [{ text }] });
-      }
-    }
-
-    // 若最後一筆是 user，也必須丟棄或處理，但因為這裡是傳給 history，目前的 request message 才是最新的 user 訊息
-    // 所以 history 應該是以 model 結尾。如果是以 user 結尾會報錯
-    if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === 'user') {
-      validHistory.pop();
-    }
 
     // 開啟 Chat Session
     const chat = model.startChat({
