@@ -142,12 +142,10 @@ const passesQuantFilter = async (symbol, chipsMap) => {
   const chips = chipsMap.get(symbol);
   if (!chips) return false;
 
-  // 條件 3（先做，不用呼叫 API）：
-  // 法人共識 — 至少一方買超 > 0，另一方不能大幅賣超(> -500張)
+  // 條件 3：外資與投信【必須同時買超】（這關最嚴，直接刷掉 90% 股票）
   const fBuy = chips.foreignBuyLot;
   const tBuy = chips.trustBuyLot;
-  if (!(fBuy > 0 || tBuy > 0)) return false;
-  if (fBuy < -500 || tBuy < -500) return false;
+  if (!(fBuy > 0 && tBuy > 0)) return false;
 
   // 取近 20 日 K 線
   const data = await getPast20DaysData(symbol);
@@ -159,13 +157,13 @@ const passesQuantFilter = async (symbol, chipsMap) => {
   // 條件 1：昨日收盤 >= 50 元
   if (yesterdayClose < 50) return false;
 
-  // 條件 2：昨日成交量 > 500 張（流動性保護）
+  // 條件 2：昨日成交量 > 1000 張
   const yesterdayVolumeLot = volumes[volumes.length - 1] / 1000;
-  if (yesterdayVolumeLot < 500) return false;
+  if (yesterdayVolumeLot < 1000) return false;
 
-  // 條件 4：昨收在近 20 日最高收盤的 97% 以上（接近突破）
+  // 條件 4：昨收在近 20 日最高收盤的 98% 以上（極度逼近或突破高點）
   const max20 = Math.max(...closes);
-  if (yesterdayClose < max20 * 0.97) return false;
+  if (yesterdayClose < max20 * 0.98) return false;
 
   return {
     symbol,
