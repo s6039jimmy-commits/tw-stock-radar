@@ -24,6 +24,25 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // 鎖死 body 滾動，避免 iOS 鍵盤彈出時把整個網頁往上推
+  useEffect(() => {
+    document.body.classList.add('chat-active');
+    
+    // 監聽鍵盤彈出導致的視窗高度改變，重新滾動到底部
+    const handleResize = () => {
+      setTimeout(scrollToBottom, 100);
+    };
+    
+    window.visualViewport?.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      document.body.classList.remove('chat-active');
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -225,6 +244,7 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setTimeout(scrollToBottom, 150)}
             placeholder={stockContext ? `詢問關於 ${stockContext.symbol}...` : "輸入您的問題"}
             rows="1"
             className="chat-input"

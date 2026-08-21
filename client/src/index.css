@@ -50,6 +50,14 @@ body {
   position: relative;
 }
 
+/* 鎖死聊天室背景，防止 iOS 鍵盤亂推 */
+body.chat-active {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
 /* Static faint honeycomb pattern base */
 body::after {
   content: '';
