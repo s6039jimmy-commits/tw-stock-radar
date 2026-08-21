@@ -141,6 +141,28 @@ export default function PositionCard({ position }) {
         </div>
       </div>
       
+      <div className="mt-1 flex items-center gap-2 text-xs">
+        <span className="text-secondary">均線防守：</span>
+        <select 
+          className="bg-black/30 border border-slate-700 rounded px-2 py-0.5 outline-none focus:border-indigo-500 text-indigo-300"
+          value={position.ma_exit_period || 5}
+          onChange={async (e) => {
+            const val = parseInt(e.target.value, 10);
+            await fetch(`/api/monitor/positions/${position.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ma_exit_period: val })
+            });
+          }}
+        >
+          <option value={5}>5日線 (周線)</option>
+          <option value={10}>10日線 (雙周線)</option>
+          <option value={20}>20日線 (月線)</option>
+          <option value={25}>25日線 (5周線)</option>
+          <option value={60}>60日線 (季線)</option>
+        </select>
+      </div>
+      
       {distanceToSl < 2 && (
         <div className="mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
           <AlertTriangle size={16} className="text-red-400 mt-0.5" />

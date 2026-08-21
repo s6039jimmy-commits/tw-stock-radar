@@ -26,6 +26,18 @@ import { isMarketOpen } from '../utils/helpers.js';
 
 router.post('/positions', async (req, res) => {
   const data = req.body;
+  
+  if (!data.name || data.name === data.symbol) {
+    try {
+      const quote = await getQuote(data.symbol);
+      if (quote && quote.name) {
+        data.name = quote.name;
+      }
+    } catch (e) {
+      console.error('Failed to fetch name for symbol', data.symbol);
+    }
+  }
+
   const result = await addPosition(data);
   const newId = result.lastInsertRowid;
 

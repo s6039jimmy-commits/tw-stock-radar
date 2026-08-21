@@ -68,17 +68,18 @@ export const checkSmartExit = async (position, currentPrice) => {
 export const checkMA5Break = async (position) => {
   if (!position.ma5_exit) return { triggered: false };
   
+  const period = position.ma_exit_period || 5;
   const candles = await getHistoricalCandles(position.symbol, '2023-01-01', '2030-01-01');
-  if (candles.length < 5) return { triggered: false };
+  if (candles.length < period) return { triggered: false };
   
-  const closes = candles.slice(-5).map(c => c.close);
-  const ma5 = calcMA(closes, 5);
+  const closes = candles.slice(-period).map(c => c.close);
+  const ma = calcMA(closes, period);
   const currentPrice = closes[closes.length - 1];
   
-  if (currentPrice < ma5) {
+  if (currentPrice < ma) {
     return {
       triggered: true,
-      reason: `跌破 5日線 (目前: ${currentPrice}, MA5: ${ma5.toFixed(2)})`
+      reason: `跌破 ${period}日線 (現價: ${currentPrice}, MA${period}: ${ma.toFixed(2)})`
     };
   }
   return { triggered: false };

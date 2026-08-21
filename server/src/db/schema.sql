@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS positions (
   stop_loss_pct REAL DEFAULT -7.0,
   take_profit_pct REAL DEFAULT 15.0,
   ma5_exit INTEGER DEFAULT 1,
+  ma_exit_period INTEGER DEFAULT 5,
   status TEXT DEFAULT 'MONITORING',
   exit_price REAL,
   exit_date TEXT,
