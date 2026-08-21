@@ -49,9 +49,10 @@ if (GEMINI_API_KEY) {
       type: SchemaType.OBJECT,
       properties: {
         symbol: { type: SchemaType.STRING, description: '台股代號 4 碼' },
-        reason: { type: SchemaType.STRING, description: '一句話利多理由' }
+        stars: { type: SchemaType.INTEGER, description: '評分 1~5 顆星' },
+        reason: { type: SchemaType.STRING, description: '一句話利多理由（無理由可填無）' }
       },
-      required: ['symbol', 'reason']
+      required: ['symbol', 'stars', 'reason']
     }
   };
   aiModel = genAI.getGenerativeModel({
@@ -207,8 +208,8 @@ const aiFilter = async (candidates) => {
 評分標準：
 - 若只是炒作題材、舊聞或無關緊要的新聞，給 1~3 星。
 - 若是具備實質基本面爆發力的明確利多，給 4~5 星。
-請以 JSON 格式回傳，只回傳評分達到 5 星的股票代號及一句話的利多理由。格式：[{"symbol": "2330", "reason": "單月營收年增達40%創歷史新高"}]
-如果沒有任何股票達到 5 星，請回傳空陣列 []。
+請以 JSON 格式回傳陣列，對【所有】傳入的股票進行評分（1~5星），並給出一句話的理由。
+格式範例：[{"symbol": "2330", "stars": 5, "reason": "單月營收年增達40%創歷史新高"}]
 
 待審股票新聞如下：
 ${stockNewsBlocks.join('\n')}`;
@@ -217,7 +218,7 @@ ${stockNewsBlocks.join('\n')}`;
     const result = await aiModel.generateContent(prompt);
     const text = result.response.text();
     const parsed = JSON.parse(text);
-    logger.info('Custom Scanner', `AI 審核完成，5 星通過: ${parsed.length} 檔 → ${parsed.map(p => p.symbol).join(', ') || '無'}`);
+    logger.info('Custom Scanner', `AI 審核完成，已評分: ${parsed.length} 檔`);
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
     logger.error('Custom Scanner', 'AI 審核失敗', e.message);
@@ -226,7 +227,7 @@ ${stockNewsBlocks.join('\n')}`;
 };
 
 // ──────────────────────────────────────────────
-// Layer 3：Telegram 推播
+// Layer 3：資料庫寫入 & Telegram 推播
 // ──────────────────────────────────────────────
 const pushResults = async (aiResults, candidateMap) => {
   for (const item of aiResults) {
@@ -235,28 +236,32 @@ const pushResults = async (aiResults, candidateMap) => {
 
     const signal = {
       symbol: item.symbol,
-      name: item.symbol,
+      name: item.symbol, // 可以加上 API 去抓真實名字
       signal_type: 'CUSTOM_STRATEGY',
-      ai_stars: 5,
-      ai_sentiment: 'BULLISH',
+      ai_stars: item.stars || 1,
+      ai_sentiment: item.stars >= 4 ? 'BULLISH' : 'NEUTRAL',
       ai_reasoning: item.reason,
       news_headline: item.reason,
       current_price: meta.yesterdayClose,
       volume_ratio: 1.0,
-      extra: `外資: +${meta.foreignBuyLot.toFixed(0)}張 / 投信: +${meta.trustBuyLot.toFixed(0)}張 / 昨收: NT$${meta.yesterdayClose} (近20日新高)`
+      extra: `外資: +${meta.foreignBuyLot.toFixed(0)}張 / 投信: +${meta.trustBuyLot.toFixed(0)}張 / 昨收: NT$${meta.yesterdayClose} (近20日高點區)`
     };
 
+    // 所有通過 Layer 1 的都寫入資料庫（雷達介面上看得到）
     try {
       await addRadarSignal(signal);
     } catch (e) {
       logger.warn('Custom Scanner', `寫入DB失敗 ${item.symbol}: ${e.message}`);
     }
 
-    try {
-      await sendCustomSignal(signal);
-      logger.info('Custom Scanner', `✅ 推播成功: ${item.symbol}`);
-    } catch (e) {
-      logger.error('Custom Scanner', `Telegram 推播失敗 ${item.symbol}`, e.message);
+    // ★ 只有 5 顆星才推送到 Telegram
+    if (item.stars === 5) {
+      try {
+        await sendCustomSignal(signal);
+        logger.info('Custom Scanner', `✅ Telegram 5星強勢推播: ${item.symbol}`);
+      } catch (e) {
+        logger.error('Custom Scanner', `Telegram 推播失敗 ${item.symbol}`, e.message);
+      }
     }
   }
 };
