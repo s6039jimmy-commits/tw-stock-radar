@@ -268,7 +268,7 @@ export const analyzeEntry = async (symbol, companyName, newsItems, priceData, re
 
   // AI 負責：根據新聞與數據撰寫「引爆點」與「操作建議」文字
   const newsText = newsItems.map((n, i) => `${i + 1}. ${n.title || n}`).join('\n');
-    const prompt = `你是台股短線交易員，請分析以下股票資料：
+    const prompt = `你是個殺伐果斷但說話接地氣的台股老手。請分析以下這檔股票：
 
 股票：${symbol} ${companyName}
 量化評分：${quant.score} 分 → ${quant.stars} 顆星
@@ -281,11 +281,14 @@ ${newsText}
 月營收年增率：${revenueData?.yoy || revenueData?.yearOverYearGrowth || '無資料'}%
 法人：外資 ${chipsData?.foreign > 0 ? '買超' : '賣超'} / 投信 ${chipsData?.trust > 0 ? '買超' : '賣超'}
 
-請根據以上資料，嚴格按照標準給予 1-5 顆星評分 (confidence_stars)，並用一句白話文寫出：
-1. catalyst（引爆點）：這檔股票現在為什麼有動靜？(若是盤前則預測今日開盤)
-2. action_plan（操作建議）：現在該怎麼操作？(例如：帶量突破某價位可進場、跌破則觀望等)
+請根據以上資料，嚴格給予 1-5 顆星評分 (confidence_stars)，並用極度白話文寫出：
+1. catalyst（引爆點）：請解釋為什麼給這個分數？這檔股票在漲什麼？(若是盤前則預測今日開盤)
+2. action_plan（操作建議）：現在該怎麼做？直接講要不要上車？或者這是來騙散戶抓交替的？
 
-注意：如果現在是開盤前（價量數據可能為0），請【完全依賴新聞題材的爆發力】來給星數！若有重磅利多新聞，請大膽給予 4~5 星。`;
+⚠️ 語氣與文字要求：
+1. 【絕對禁止使用財經術語】（不要講 MoM、YoY、流動性、隔日沖券商），把它翻譯成連菜市場阿嬤都聽得懂的白話文！
+2. 語氣要極度白話、直接、帶點江湖味！
+3. 【絕對不要打官腔】！絕對禁止出現「建議觀望」、「待籌碼穩定後再評估」、「投資盈虧自負」這類廢話！直接點破這是在玩真的還是主力在倒貨！`;
 
   try {
     const result = await model.entry.generateContent(prompt);
