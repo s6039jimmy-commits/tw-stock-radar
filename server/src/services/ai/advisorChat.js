@@ -104,10 +104,14 @@ ${news.map((n, i) => `${i + 1}. ${n.title}`).join('\n')}
 
     const fullPrompt = `${contextPrompt}${message}`;
     const result = await chat.sendMessage(fullPrompt);
-    const responseText = result.response.text();
+    let responseText = result.response.text();
+    
+    // 強制過濾歷史對話帶來的殘留語氣
+    responseText = responseText.replace(/\(量化評估結果，投資盈虧自負\)/g, '');
+    responseText = responseText.replace(/建議觀望/g, '這檔沒搞頭');
 
     return {
-      text: responseText,
+      text: responseText.trim(),
       timestamp: new Date().toISOString()
     };
   } catch (error) {
