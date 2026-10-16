@@ -3,6 +3,7 @@ import { getQuote } from '../fugle/marketData.js';
 import { fetchLatestStockNews } from '../news/cnyesNews.js';
 import { getBot } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { isTradingDay } from '../../utils/helpers.js';
 import fetch from 'node-fetch';
 
 /**
@@ -41,6 +42,12 @@ const fetchInstitutionalTotals = async () => {
  * 4. 嚴禁任何停損停利、風控、守護本金、勝率統計等廢話
  */
 export const runPostMarketScan = async () => {
+  // 檢查是否為台股正常交易日（國定假日、連假、颱風假休市絕不推播）
+  if (!isTradingDay()) {
+    logger.info('PostMarket', '🛑 今日為台股休市日／連假，不執行 14:05 大盤推播');
+    return;
+  }
+
   logger.info('PostMarket', '📊 執行 14:05 大盤指數明日漲跌預測推播 (含原因與界檢)...');
 
   const bot = getBot();

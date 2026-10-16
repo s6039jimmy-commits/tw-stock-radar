@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { RADAR_SCAN_INTERVAL_MIN } from '../config/index.js';
-import { isMarketOpen } from '../utils/helpers.js';
+import { isMarketOpen, isTradingDay } from '../utils/helpers.js';
 import { scan as scanBlueChip } from '../services/radar/blueChipScanner.js';
 import { scan as scanMomentum } from '../services/radar/momentumScanner.js';
 import { scan as scanCustom } from '../services/radar/customScanner.js';
@@ -77,17 +77,26 @@ export const startRadarJobs = () => {
   // 夜盤掃描改為定點回報：美股開盤後(22:30)、盤中(01:30)、收盤結算(05:30)
   cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
   
-  // 盤前報告 (08:30)
+  // 盤前報告 (08:30) — 僅在正常交易日發送
   cron.schedule('30 8 * * 1-5', () => {
-    runPreMarketScan();
-    // runCustomScan(); // 依使用者指示停用：不推播基於法人的選股清單
+    if (isTradingDay()) {
+      runPreMarketScan();
+    } else {
+      logger.info('Scheduler', '今日為台股休市日／連假，跳過 08:30 晨報');
+    }
   }, options);
   
   // 依使用者指示：取消 14:00 統計推播（不要勝率、不要風控廢話）
   // cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);
 
-  // 🎯 14:05 唯一盤後推播：大盤指數明日漲跌預測（純大方向，不推任何個股）
-  cron.schedule('5 14 * * 1-5', runPostMarketStockScan, options);
+  // 🎯 14:05 唯一盤後推播：大盤指數明日漲跌預測（僅在正常交易日發送，連假休市絕不推播）
+  cron.schedule('5 14 * * 1-5', () => {
+    if (isTradingDay()) {
+      runPostMarketStockScan();
+    } else {
+      logger.info('Scheduler', '今日為台股休市日／連假，跳過 14:05 大盤推播');
+    }
+  }, options);
 
   logger.info('Scheduler', '✅ 所有排程已啟動 (台北時間)');
 };

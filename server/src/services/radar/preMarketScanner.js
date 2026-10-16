@@ -3,8 +3,15 @@ import { ADR_MAPPING, fetchYahooQuote } from './nightScanner.js';
 import { getBot } from '../notify/telegram.js';
 import { getSetting } from '../../db/database.js';
 import { logger } from '../../utils/logger.js';
+import { isTradingDay } from '../../utils/helpers.js';
 
 export const generatePreMarketReport = async () => {
+  // 檢查是否為台股正常交易日（連假、國定假日、休市不推播）
+  if (!isTradingDay()) {
+    logger.info('PreMarket', '🛑 今日為台股休市日／連假，不執行 08:30 晨間早報');
+    return;
+  }
+
   logger.info('PreMarket', '🌅 開始生成 08:30 晨間早報...');
 
   try {
