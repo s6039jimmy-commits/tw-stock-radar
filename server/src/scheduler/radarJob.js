@@ -83,10 +83,10 @@ export const startRadarJobs = () => {
     // runCustomScan(); // 依使用者指示停用：不推播基於法人的選股清單
   }, options);
   
-  // 盤後統計總結 (14:00)
-  cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);
+  // 依使用者指示：取消 14:00 統計推播（不要勝率、不要風控廢話）
+  // cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);
 
-  // 盤後選股推播 (14:05) — 找出今日強勢股，推送「明日自選股清單」
+  // 🎯 14:05 唯一盤後推播：大盤指數明日漲跌預測（純大方向，不推任何個股）
   cron.schedule('5 14 * * 1-5', runPostMarketStockScan, options);
 
   logger.info('Scheduler', '✅ 所有排程已啟動 (台北時間)');

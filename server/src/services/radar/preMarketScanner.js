@@ -62,37 +62,10 @@ export const generatePreMarketReport = async () => {
 
     await bot.sendMessage(chatId, htmlMarket, { parse_mode: 'HTML' });
 
-    // --- 第二則：今日進場清單（最重要！）---
-    // 依照使用者要求：有 4 星的話才要，沒有的話就不要發送廢話
-    if (watchlist && watchlist.length > 0) {
-      let htmlWatchlist = `🎯 <b>今日開盤進場清單</b>\n`;
-      htmlWatchlist += `<i>以下為昨日盤後選出的強勢股，請在 09:00 前評估是否掛單！</i>\n\n`;
+    // 依使用者指示：全面取消個股進場清單推播，只保留大盤方向
+    // 不再推播任何個股名單
 
-      const inlineKeyboard = [];
-      for (let i = 0; i < watchlist.length; i++) {
-        const s = watchlist[i];
-        htmlWatchlist += `<b>${i + 1}. ${s.symbol} ${s.name}</b>\n`;
-        htmlWatchlist += `   昨日收盤：<code>NT$ ${s.closePrice}</code>  昨日漲幅：<code>+${s.changeP}%</code>\n`;
-        htmlWatchlist += `   籌碼：${s.chipsScore}\n`;
-        htmlWatchlist += `   題材：<i>${s.catalyst}</i>\n`;
-        htmlWatchlist += `   ——————————\n`;
-        htmlWatchlist += `   📌 建議操作\n`;
-        htmlWatchlist += `   進場價：<code>NT$ ${s.suggestBuy}</code>（開盤不破此價再買）\n`;
-        htmlWatchlist += `   🛡 停損：<code>NT$ ${s.stopLoss}</code>\n`;
-        htmlWatchlist += `   🎯 目標：<code>NT$ ${s.target}</code>\n\n`;
-
-        // 建立按鈕
-        const callbackData = `ENTER:${s.symbol}:${s.suggestBuy}:5:${s.name}`.substring(0, 64);
-        inlineKeyboard.push([{ text: `✅ 我要進場 ${s.symbol} (加入監控)`, callback_data: callbackData }]);
-      }
-      htmlWatchlist += `⚠️ <i>投資盈虧自負，請務必設好停損！</i>`;
-
-      await bot.sendMessage(chatId, htmlWatchlist, { 
-        parse_mode: 'HTML',
-        reply_markup: { inline_keyboard: inlineKeyboard }
-      });
-      logger.info('PreMarket', `✅ 今日進場清單已發送 (${watchlist.length} 檔)`);
-    }
+    logger.info('PreMarket', '✅ 晨間早報（純大盤方向）已發送');
 
     logger.info('PreMarket', '✅ 晨間早報已發送');
   } catch (error) {

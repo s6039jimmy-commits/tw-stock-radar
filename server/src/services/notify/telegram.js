@@ -166,25 +166,9 @@ export const sendEntrySignal = async (signal) => {
 };
 
 export const sendExitAlert = (alert, position, profitPct = null) => {
-  const emojis = { STOP_LOSS: '🚨 停損警報', TAKE_PROFIT: '🎉 停利警報', MA5_BREAK: '⚠️ 跌破 MA5', NEWS_EXIT: '🏃 風向逃命' };
-  
-  let pnlText = '';
-  if (profitPct !== null) {
-    const isProfit = profitPct > 0;
-    pnlText = `\n<b>預估損益：</b> ${isProfit ? '💰 獲利' : '💸 虧損'} <code>${profitPct > 0 ? '+' : ''}${profitPct.toFixed(2)}%</code>\n`;
-  }
-
-  const html = `${emojis[alert.alert_type] || '🔔 出場警報'}
-
-<b>股票：</b> <code>${alert.symbol}</code> (${position.name || alert.symbol})
-<b>進場價格：</b> <code>NT$ ${position.entry_price}</code>
-<b>觸發價格：</b> <code>NT$ ${alert.trigger_price}</code>${pnlText}
-<b>觸發原因：</b> ${alert.trigger_reason}
-
-<b>AI 出場分析建議：</b>
-<pre>${alert.ai_analysis || '符合技術面出場紀律，建議立即停損/停利。'}</pre>`;
-  
-  return sendHTML(html);
+  // 依使用者指示：全面關閉停損停利與破線出場推播，保持 Telegram 清爽
+  logger.info('Telegram', `[已停用推播] 依使用者指示，不發送出場警報: ${alert.symbol} (${alert.alert_type})`);
+  return false;
 };
 
 export const sendDailySummary = (stats, marketSummary = '') => {
