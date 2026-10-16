@@ -66,21 +66,21 @@ export const runPostMarketStockScan = async () => {
 export const startRadarJobs = () => {
   const options = { timezone: 'Asia/Taipei' };
 
-  // 盤中定期掃描
+  // 盤中定期掃描（依使用者指示：已關閉爆量飆股推播）
   cron.schedule(`*/${RADAR_SCAN_INTERVAL_MIN} * * * 1-5`, () => {
     if (isMarketOpen()) {
       runBlueChipScan();
-      runMomentumScan();
+      // runMomentumScan(); // 已關閉：不推播爆量飆股
     }
   }, options);
   
   // 夜盤掃描改為定點回報：美股開盤後(22:30)、盤中(01:30)、收盤結算(05:30)
   cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
   
-  // 盤前報告 + 專屬選股雷達 (08:30) — 兩者並行
+  // 盤前報告 (08:30)
   cron.schedule('30 8 * * 1-5', () => {
     runPreMarketScan();
-    runCustomScan(); // 🎯 使用者專屬三層過濾選股
+    // runCustomScan(); // 依使用者指示停用：不推播基於法人的選股清單
   }, options);
   
   // 盤後統計總結 (14:00)

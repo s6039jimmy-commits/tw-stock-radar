@@ -157,18 +157,18 @@ export const quantitativeScore = (priceData, chipsData, revenueData, brokersData
     score += 15; breakdown.push(`量增 ${volumeRatio.toFixed(1)}x (+15)`);
   }
 
-  // 2. 法人籌碼評分
+  // 2. 法人籌碼評分（大幅降低法人無腦加分權重，避免「只要法人買就無腦推薦」的盲點）
   if (chipsData) {
     const foreignNet = chipsData.foreign || 0;
     const trustNet = chipsData.trust || 0;
-    if (foreignNet > 0) {
-      score += 20; breakdown.push(`外資買超 ${Math.round(foreignNet / 1000)}張 (+20)`);
+    if (foreignNet > 1000000) { // 買超超過 1000 張才有參考價值
+      score += 8; breakdown.push(`外資顯著買超 ${Math.round(foreignNet / 1000)}張 (+8)`);
     }
-    if (trustNet > 0) {
-      score += 15; breakdown.push(`投信買超 ${Math.round(trustNet / 1000)}張 (+15)`);
+    if (trustNet > 500000) { // 投信買超超過 500 張
+      score += 8; breakdown.push(`投信顯著買超 ${Math.round(trustNet / 1000)}張 (+8)`);
     }
     if (foreignNet > 0 && trustNet > 0) {
-      score += 10; breakdown.push(`外資+投信同步買超 (+10)`);
+      score += 4; breakdown.push(`外資投信同步微幅偏多 (+4)`);
     }
   }
 
@@ -209,10 +209,10 @@ export const quantitativeScore = (priceData, chipsData, revenueData, brokersData
   // 6. 【中小型飆股專屬評分】
   // ============================================================
 
-  // 6a. 散戶爆量（中小型股 + 成交量暴衝，通常代表散戶瘋搶）
+  // 6a. 散戶過熱警戒（中小型股若暴量卻無實質籌碼支撐，視為風險）
   const price = parseFloat(priceData?.lastPrice || priceData?.closePrice || 0);
-  if (volumeRatio >= 5 && price < 200) {
-    score += 20; breakdown.push(`🔥 散戶爆量（小型股量比${volumeRatio.toFixed(1)}x）(+20)`);
+  if (volumeRatio >= 5 && price < 200 && (!chipsData || (chipsData.foreign <= 0 && chipsData.trust <= 0))) {
+    score -= 15; breakdown.push(`⚠️ 散戶無基之彈追高風險 (-15)`);
   }
 
   // 6b. 股價創 20 日新高（突破壓力區，常見飆股起漲點）

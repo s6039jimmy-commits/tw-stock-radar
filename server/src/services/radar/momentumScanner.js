@@ -136,12 +136,12 @@ export const scan = async () => {
           // 寫入資料庫
           await addRadarSignal(signal);
 
-          // 推播通知 (4顆星以上才傳送 Telegram)
-          if (result.confidence_stars >= 4) {
-            await sendEntrySignal(signal);
-          }
+          // 使用者指示：全面停用飆股推播通知
+          // if (result.confidence_stars >= 4) {
+          //   await sendEntrySignal(signal);
+          // }
 
-          logger.info('Momentum Scanner', `🚀 發現飆股信號: ${symbol} ${name} - ${result.confidence_stars}星 (量比: ${volumeRatio.toFixed(1)}x)`);
+          logger.info('Momentum Scanner', `🚀 發現飆股信號: ${symbol} ${name} - ${result.confidence_stars}星 (僅記錄資料庫，不推播 Telegram)`);
         }
       } catch (e) {
         logger.error('Momentum Scanner', `掃描 ${item.symbol} 失敗`, e);

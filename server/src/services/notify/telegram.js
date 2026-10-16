@@ -87,6 +87,12 @@ const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
 };
 
 export const sendEntrySignal = async (signal) => {
+  // 依使用者指示：全面關閉「爆量飆股」推播，不再推送此類短線動能訊號
+  if (signal.signal_type === 'MOMENTUM') {
+    logger.info('Telegram', `[已停用推播] 依使用者指示，全面封鎖爆量飆股推播: ${signal.symbol} (${signal.name})`);
+    return false;
+  }
+
   // 依據使用者要求，將推播門檻提高至 5 星
   if (signal.ai_stars < 5) {
     logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 5 星推播門檻，跳過推播。`);
