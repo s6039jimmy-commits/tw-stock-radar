@@ -12,9 +12,9 @@ export const getBot = (overrideToken = null) => {
 
   if (!botInstance || currentToken !== token) {
     try {
-      botInstance = new TelegramBot(token, { polling: true });
+      botInstance = new TelegramBot(token, { polling: false });
       currentToken = token;
-      logger.info('Telegram', 'Telegram Bot 初始化成功，已開啟 Polling 模式');
+      logger.info('Telegram', 'Telegram Bot 初始化成功 (Webhook/Push 模式，無 Polling 衝突)');
       
       // 處理 Inline Keyboard 按鈕點擊
       botInstance.on('callback_query', async (query) => {
