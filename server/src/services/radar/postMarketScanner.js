@@ -3,128 +3,101 @@ import { getMarketSnapshot, getQuote } from '../fugle/marketData.js';
 import { getChipsForSymbol } from '../fundamentals/chips.js';
 import { fetchNewsByTicker } from '../news/cnyesNews.js';
 import { getBot } from '../notify/telegram.js';
-import { setSetting, getActivePositions, getTradeStats } from '../../db/database.js';
+import { setSetting } from '../../db/database.js';
 import { analyzeEntry } from '../ai/geminiClient.js';
 import { getRevenueForSymbol } from '../fundamentals/revenue.js';
 import { getBrokerTracking } from '../fundamentals/brokerTracking.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
- * 盤後執行兩件事：
- * 1. 發送「今日持倉績效會報」
- * 2. 全市場掃描今日強勢股 → 過 AI 5 星關 → 存為「明日進場清單」
+ * 盤後兩件事：
+ * 1. 14:00 — 發送今日收盤 + AI 明日大盤漲跌預測
+ * 2. 14:05 — 掃描當日強勢股，直接推播到 Telegram
  */
 export const runPostMarketScan = async () => {
-  logger.info('PostMarket', '📊 開始執行盤後任務...');
-
-  // === 任務一：今日持倉績效會報 ===
+  logger.info('PostMarket', '開始執行盤後任務...');
   await sendDailyPerformanceReport();
-
-  // === 任務二：AI 5 星選股 → 存為明日清單 ===
   await buildTomorrowWatchlist();
 };
 
 // ─────────────────────────────────────
-// 任務一：今日績效會報
+// 任務一：14:00 盤後快報 — 明日漲跌預測
 // ─────────────────────────────────────
 const sendDailyPerformanceReport = async () => {
-  logger.info('PostMarket', '📋 產生今日盤後總結...');
+  logger.info('PostMarket', '產生 14:00 盤後快報 + 明日預測...');
   const bot = getBot();
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!bot || !chatId) return;
 
   const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
 
-  // ── 1. 抓今日大盤資料 + 熱門新聞 ──
-  let marketSummary = '';
   try {
     const { fetchLatestStockNews } = await import('../news/cnyesNews.js');
     const { getQuote } = await import('../fugle/marketData.js');
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
 
     const [tseQuote, otcQuote, news] = await Promise.all([
       getQuote('IX0001'),
       getQuote('IX0043'),
-      fetchLatestStockNews(8)
+      fetchLatestStockNews(10)
     ]);
 
-    const tseChange = tseQuote?.changePercent || tseQuote?.change || 0;
-    const otcChange = otcQuote?.changePercent || otcQuote?.change || 0;
+    const tseClose = tseQuote?.closePrice || tseQuote?.lastPrice || 0;
+    const tseChange = parseFloat(tseQuote?.changePercent || tseQuote?.change || 0);
+    const otcChange = parseFloat(otcQuote?.changePercent || otcQuote?.change || 0);
     const newsText = news.map((n, i) => `${i + 1}. ${n.title}`).join('\n');
 
-    // 用 AI 生成今日市場總結
+    let aiVerdict = '明日方向：資料不足，無法判斷';
+    let tomorrowEmoji = '❓';
+
     if (process.env.GEMINI_API_KEY) {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-      const prompt = `你是台股資深分析師，今天台股已收盤。
-加權指數漲跌：${tseChange > 0 ? '+' : ''}${tseChange}%，櫃買指數：${otcChange > 0 ? '+' : ''}${otcChange}%
+      const prompt = `你是一個直接說結論的台股老手，不說廢話。今天台股已收盤。
+
+今日數據：
+- 加權指數收盤: ${tseClose} 點，漲跌: ${tseChange > 0 ? '+' : ''}${tseChange}%
+- 櫃買指數漲跌: ${otcChange > 0 ? '+' : ''}${otcChange}%
 
 今日重點新聞：
 ${newsText}
 
-請用 150 字以內的白話文，寫出：
-1. 今天大盤的整體方向與原因（例如：哪類股強、哪類股弱、外資動向）
-2. 明天開盤要注意什麼風險或機會
-語氣精準有力，直接給結論。`;
+你只需要做一件事：明確預測明天台股大盤是漲還是跌，以及原因。
+
+格式要求（嚴格遵守）：
+第一行：「明日預測：【漲】」或「明日預測：【跌】」或「明日預測：【震盪偏多】」或「明日預測：【震盪偏空】」
+第二行開始：用 3~4 句白話說清楚理由（每個理由要有具體數據支撐）
+
+絕對禁止出現：觀望、投資盈虧自負、建議謹慎、守護本金`;
 
       const res = await model.generateContent(prompt);
-      marketSummary = res.response.text();
+      aiVerdict = res.response.text().trim();
+
+      if (aiVerdict.includes('【漲】') || aiVerdict.includes('偏多')) tomorrowEmoji = '📈';
+      else if (aiVerdict.includes('【跌】') || aiVerdict.includes('偏空')) tomorrowEmoji = '📉';
+      else tomorrowEmoji = '↔️';
     }
-  } catch (e) {
-    logger.warn('PostMarket', `市場總結生成失敗: ${e.message}`);
-    marketSummary = '今日市場資料取得失敗，請自行查閱財經媒體。';
-  }
 
-  // ── 2. 建立報告 ──
-  let html = `📊 <b>今日盤後總結 — ${today}</b>\n\n`;
+    const tseSign = tseChange >= 0 ? '+' : '';
+    const html = `${tomorrowEmoji} <b>盤後快報 — ${today}</b>\n\n<b>今日收盤：</b> <code>${tseClose} 點 (${tseSign}${tseChange}%)</code>\n\n<b>🔮 AI 明日預測：</b>\n<pre>${aiVerdict}</pre>`;
 
-  // 市場方向 AI 總結
-  html += `<b>🤖 今日市場總結：</b>\n`;
-  html += `<pre>${marketSummary}</pre>\n\n`;
-
-  // 持倉績效
-  const positions = await getActivePositions();
-  const stats = await getTradeStats();
-
-  if (positions.length === 0) {
-    html += `<b>📌 持倉：</b> 目前無持倉，空手觀望中。\n`;
-  } else {
-    html += `<b>📌 監控中持倉（${positions.length} 檔）：</b>\n`;
-    for (const pos of positions) {
-      try {
-        const { getQuote } = await import('../fugle/marketData.js');
-        const quote = await getQuote(pos.symbol);
-        const currentPrice = quote?.lastPrice || quote?.closePrice || pos.entry_price;
-        const pnlPct = ((currentPrice - pos.entry_price) / pos.entry_price) * 100;
-        const pnlSign = pnlPct >= 0 ? '+' : '';
-        const emoji = pnlPct >= 5 ? '🚀' : pnlPct >= 0 ? '🟢' : pnlPct >= -4 ? '🟡' : '🔴';
-        html += `${emoji} <b>${pos.symbol} ${pos.name}</b>  進場 <code>NT$${pos.entry_price}</code> → 今收 <code>NT$${currentPrice}</code>  <code>${pnlSign}${pnlPct.toFixed(2)}%</code>`;
-        if (pnlPct <= -5) html += ` ⚠️ 接近停損`;
-        if (pnlPct >= 12) html += ` 🎯 接近目標`;
-        html += `\n`;
-      } catch (e) {
-        html += `⚪ <b>${pos.symbol} ${pos.name}</b> — 報價取得失敗\n`;
-      }
-    }
-  }
-
-  html += `\n<b>📈 系統累積：</b> 總交易 <code>${stats.totalTrades}</code> 筆　勝率 <code>${stats.winRate}%</code>　平均損益 <code>${stats.avgProfitPct > 0 ? '+' : ''}${stats.avgProfitPct}%</code>`;
-
-  try {
     await bot.sendMessage(chatId, html, { parse_mode: 'HTML' });
-    logger.info('PostMarket', '✅ 今日盤後總結已發送');
+    logger.info('PostMarket', '✅ 14:00 明日預測已發送');
   } catch (e) {
-    logger.error('PostMarket', '發送盤後總結失敗: ' + e.message);
+    logger.error('PostMarket', '發送盤後快報失敗: ' + e.message);
   }
 };
 
 // ─────────────────────────────────────
-// 任務二：AI 5 星選股，建立明日清單
+// 任務二：14:05 盤後選股 — 掃描強勢股直接推播
 // ─────────────────────────────────────
 const buildTomorrowWatchlist = async () => {
-  logger.info('PostMarket', '🔍 開始 AI 5 星盤後選股...');
+  logger.info('PostMarket', '開始 14:05 盤後 AI 選股...');
 
   try {
+    const bot = getBot();
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
     const [tseSnapshot, otcSnapshot] = await Promise.all([
       getMarketSnapshot('TSE'),
       getMarketSnapshot('OTC')
@@ -137,7 +110,7 @@ const buildTomorrowWatchlist = async () => {
       return;
     }
 
-    // 第一關：量化初篩（漲幅 >3%、量 >1000 張、股價 >20 元）
+    // 初篩：漲幅 >3%、量 >1000 張、股價 >20 元
     const candidates = allStocks
       .filter(s => {
         const changeP = parseFloat(s.changePercent || 0);
@@ -148,9 +121,8 @@ const buildTomorrowWatchlist = async () => {
       .sort((a, b) => parseFloat(b.changePercent || 0) - parseFloat(a.changePercent || 0))
       .slice(0, 10);
 
-    logger.info('PostMarket', `量化初篩：${candidates.length} 檔候選 → 送入 AI 第二關`);
+    logger.info('PostMarket', `初篩 ${candidates.length} 檔 → 送 AI 評分`);
 
-    // 第二關：AI 評分，只有 5 星才進清單
     const watchlist = [];
     for (const stock of candidates) {
       try {
@@ -168,46 +140,68 @@ const buildTomorrowWatchlist = async () => {
         ]);
 
         const quote = { lastPrice: closePrice, changePercent: changeP, volumeRatio: 2.5 };
-        const aiResult = await analyzeEntry(symbol, name, news.length > 0 ? news : [{ title: `${name} 今日爆量強漲 ${changeP}%` }], quote, revenue, chips, brokers);
+        const aiResult = await analyzeEntry(
+          symbol, name,
+          news.length > 0 ? news : [{ title: `${name} 今日強漲 ${changeP}%` }],
+          quote, revenue, chips, brokers
+        );
 
         if (!aiResult || aiResult.confidence_stars < 4) {
-          logger.info('PostMarket', `${symbol} AI 評分：${aiResult?.confidence_stars || 0} 星，未達 4 星，排除`);
+          logger.info('PostMarket', `${symbol} ${aiResult?.confidence_stars || 0}星，排除`);
           continue;
         }
 
-        logger.info('PostMarket', `⭐ ${symbol} ${name} 通過 AI 4 星關卡！`);
-
-        // 籌碼評分
-        let chipsScore = '無資料';
+        // 籌碼簡要說明
+        let chipsLine = '法人無資料';
         if (chips) {
-          if (chips.foreign > 0 && chips.trust > 0) chipsScore = '🟢 外資+投信同步買超';
-          else if (chips.foreign > 0) chipsScore = '🔵 外資買超';
-          else if (chips.trust > 0) chipsScore = '🟡 投信買超';
-          else chipsScore = '⚪ 自營商或散戶推升';
+          const fNet = Math.round((chips.foreign || 0) / 1000);
+          const tNet = Math.round((chips.trust || 0) / 1000);
+          if (fNet > 0 && tNet > 0) chipsLine = `外資買 ${fNet} 張 + 投信買 ${tNet} 張`;
+          else if (fNet > 0) chipsLine = `外資買超 ${fNet} 張`;
+          else if (tNet > 0) chipsLine = `投信買超 ${tNet} 張`;
+          else if (fNet < 0) chipsLine = `外資賣超 ${Math.abs(fNet)} 張`;
+          else chipsLine = '法人中立';
         }
 
         watchlist.push({
-          symbol,
-          name,
-          closePrice,
-          changeP,
+          symbol, name, closePrice, changeP,
           volume: Math.round(volume / 1000),
-          suggestBuy: (closePrice * 1.005).toFixed(1),
-          stopLoss: (closePrice * 0.93).toFixed(1),
-          target: (closePrice * 1.15).toFixed(1),
-          chipsScore,
-          aiReasoning: aiResult.catalyst || '',
-          catalyst: news.length > 0 ? news[0].title : '技術面強勢突破'
+          chipsLine,
+          catalyst: news.length > 0 ? news[0].title : '技術面強勢突破',
+          aiReasoning: aiResult.catalyst || aiResult.action_plan || '',
+          stars: aiResult.confidence_stars
         });
+
+        logger.info('PostMarket', `⭐ ${symbol} ${name} ${aiResult.confidence_stars}星 加入清單`);
       } catch (e) {
-        logger.warn('PostMarket', `AI 分析 ${stock.symbol} 失敗: ${e.message}`);
+        logger.warn('PostMarket', `${stock.symbol} 分析失敗: ${e.message}`);
       }
     }
 
-    // 儲存到資料庫，供 08:30 早報讀取
+    // 儲存供早報使用
     await setSetting('TOMORROW_WATCHLIST', JSON.stringify(watchlist));
     await setSetting('TOMORROW_WATCHLIST_DATE', new Date().toISOString().split('T')[0]);
-    logger.info('PostMarket', `✅ 明日 5 星自選股：${watchlist.length} 檔 (已儲存，將於明早 08:30 發送)`);
+
+    // 直接推播到 TG
+    if (bot && chatId && watchlist.length > 0) {
+      const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
+      let html = `🎯 <b>盤後選股 — ${today}</b>\n<i>今日強勢股，明日參考：</i>\n\n`;
+
+      for (const s of watchlist) {
+        const stars = '⭐'.repeat(s.stars);
+        html += `<b>${s.symbol} ${s.name}</b>  ${stars}\n`;
+        html += `今收 <code>NT$${s.closePrice}</code>  今漲 <code>+${s.changeP}%</code>  量 <code>${s.volume}張</code>\n`;
+        html += `籌碼：${s.chipsLine}\n`;
+        html += `題材：<i>${s.catalyst}</i>\n`;
+        if (s.aiReasoning) html += `AI：${s.aiReasoning}\n`;
+        html += `\n`;
+      }
+
+      await bot.sendMessage(chatId, html, { parse_mode: 'HTML' });
+      logger.info('PostMarket', `✅ 14:05 盤後選股推播完成 (${watchlist.length} 檔)`);
+    } else if (watchlist.length === 0) {
+      logger.info('PostMarket', '今日無符合條件的強勢股，不推播');
+    }
 
   } catch (e) {
     logger.error('PostMarket', '盤後 AI 選股失敗', e);
