@@ -19,6 +19,30 @@ let holidayCache = new Set([
 let lastHolidayFetch = 0;
 const HOLIDAY_CACHE_TTL = 24 * 60 * 60 * 1000; // 每天更新一次
 
+// 美股 (NYSE / NASDAQ) 官方節日休市日曆 (2025-2027)
+export const US_HOLIDAYS = new Set([
+  // 2025
+  '2025-01-01', '2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26', '2025-06-19', '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25',
+  // 2026
+  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+  // 2027
+  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24'
+]);
+
+/**
+ * 檢查美股當天是否開盤（排除六日與美股官方國定假日）
+ */
+export const isUsTradingDay = (date = new Date()) => {
+  const usTime = new Date(date.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const day = usTime.getDay();
+  if (day === 0 || day === 6) return false;
+  const year = usTime.getFullYear();
+  const month = String(usTime.getMonth() + 1).padStart(2, '0');
+  const d = String(usTime.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${d}`;
+  return !US_HOLIDAYS.has(dateStr);
+};
+
 /**
  * 更新台灣證券交易所 (TWSE) 官方休市日曆
  */

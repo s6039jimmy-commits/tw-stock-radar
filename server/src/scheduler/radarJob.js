@@ -74,17 +74,11 @@ export const startRadarJobs = () => {
     }
   }, options);
   
-  // 夜盤掃描改為定點回報：美股開盤後(22:30)、盤中(01:30)、收盤結算(05:30)
-  cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
+  // 夜盤掃描 (22:30, 01:30, 05:30) — 依使用者指示全面關閉：半夜不打擾，美股節日放假絕不推播
+  // cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
   
-  // 盤前報告 (08:30) — 僅在正常交易日發送
-  cron.schedule('30 8 * * 1-5', () => {
-    if (isTradingDay()) {
-      runPreMarketScan();
-    } else {
-      logger.info('Scheduler', '今日為台股休市日／連假，跳過 08:30 晨報');
-    }
-  }, options);
+  // 盤前報告 (08:30) — 依使用者「改成 14:05 推薦就好」指示，已停用
+  // cron.schedule('30 8 * * 1-5', () => { runPreMarketScan(); }, options);
   
   // 依使用者指示：取消 14:00 統計推播（不要勝率、不要風控廢話）
   // cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);

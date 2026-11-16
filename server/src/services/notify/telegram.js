@@ -93,82 +93,9 @@ const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
 };
 
 export const sendEntrySignal = async (signal) => {
-  // 依使用者指示：全面關閉「爆量飆股」推播，不再推送此類短線動能訊號
-  if (signal.signal_type === 'MOMENTUM') {
-    logger.info('Telegram', `[已停用推播] 依使用者指示，全面封鎖爆量飆股推播: ${signal.symbol} (${signal.name})`);
-    return false;
-  }
-
-  // 依據使用者要求，將推播門檻提高至 5 星
-  if (signal.ai_stars < 5) {
-    logger.info('Telegram', `信號 ${signal.symbol} 僅 ${signal.ai_stars} 星，未達 5 星推播門檻，跳過推播。`);
-    return false;
-  }
-
-  // 根據使用者要求，只推播「偏多 (做多)」的進場訊號，過濾掉做空或觀望
-  if (signal.ai_sentiment !== 'BULLISH') {
-    logger.info('Telegram', `信號 ${signal.symbol} 為 ${signal.ai_sentiment}，依設定只推播做多訊號，跳過推播。`);
-    return false;
-  }
-
-  const today = new Date().toISOString().split('T')[0];
-  const savedDate = await getSetting('DAILY_PUSH_DATE');
-  let pushCount = parseInt(await getSetting('DAILY_PUSH_COUNT') || '0', 10);
-  
-  if (savedDate !== today) {
-    pushCount = 0;
-    await setSetting('DAILY_PUSH_DATE', today);
-  }
-
-  if (pushCount >= 10) {
-    logger.info('Telegram', `今日推播已達上限 (10 次)，跳過信號 ${signal.symbol}`);
-    return false;
-  }
-
-  const stars = '⭐'.repeat(signal.ai_stars || 4);
-  
-  let directionText = '🟢 偏多 (做多)';
-  let actionEmoji = '📈';
-  if (signal.ai_sentiment === 'BEARISH') {
-    directionText = '🔴 偏空 (做空)';
-    actionEmoji = '📉';
-  } else if (signal.ai_sentiment === 'NEUTRAL') {
-    directionText = '⚪ 中立 (觀望)';
-    actionEmoji = '➖';
-  }
-
-  const html = `🎯 <b>AI 台股進場訊號警報</b>
-
-<b>股票：</b> <code>${signal.symbol}</code> (${signal.name})
-<b>方向：</b> ${directionText}
-<b>類型：</b> ${signal.signal_type === 'BLUE_CHIP' ? '🏛️ 大型權值股' : '🚀 爆量飆股'}
-<b>AI 信心度：</b> ${stars} (${signal.ai_stars} 顆星)
-<b>目前價格：</b> <code>NT$ ${signal.current_price}</code>
-<b>量比：</b> <code>${signal.volume_ratio ? Number(signal.volume_ratio).toFixed(1) + 'x' : '1.0x'}</code>
-
-<b>AI 策略分析：</b>
-<pre>${signal.ai_reasoning || '無詳細推理'}</pre>
-
-<b>觸發新聞：</b>
-<i>${signal.news_headline || '市場爆量突破'}</i>`;
-  
-  const callbackData = `ENTER:${signal.symbol}:${signal.current_price}:${signal.ai_stars}:${signal.name}`.substring(0, 64);
-  
-  const markup = {
-    inline_keyboard: [
-      [{ text: `${actionEmoji} 是，我要進場 (加入監控)`, callback_data: callbackData }],
-      [
-        { text: '📈 TradingView', url: `https://tw.tradingview.com/chart/?symbol=TWSE:${signal.symbol}` },
-        { text: '📰 鉅亨網', url: `https://news.cnyes.com/news/keyword/${signal.symbol}` }
-      ]
-    ]
-  };
-  
-  const success = await sendHTML(html, markup);
-  if (success) {
-    await setSetting('DAILY_PUSH_COUNT', (pushCount + 1).toString());
-  }
-  return success;
+  // 依使用者指示：全面關閉個股進場訊號推播，改為純 14:05 大盤指數推播
+  logger.info('Telegram', `[已停用推播] 依使用者指示，全面封鎖個股訊號推播: ${signal.symbol} (${signal.name || signal.symbol})`);
+  return false;
 };
 
 export const sendExitAlert = (alert, position, profitPct = null) => {
