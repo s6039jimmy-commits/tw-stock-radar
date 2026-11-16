@@ -1,18 +1,15 @@
 import { logger } from '../../utils/logger.js';
 import { getQuote } from '../fugle/marketData.js';
 import { fetchLatestStockNews } from '../news/cnyesNews.js';
-import { getBot } from '../notify/telegram.js';
+import { sendHTML } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isTradingDay, getMarketHolidayAlerts } from '../../utils/helpers.js';
 
 /**
  * 🎯 14:05 盤後推播：大盤明日預測與深度剖析
- * 依使用者嚴格要求：
- * 1. 核心標的：0056、006208、加權指數大盤
- * 2. 雙層架構：老闆速讀區（簡單漲跌與行動方針）+ 朋友深讀區（主力結構與支撐壓力關鍵點位）
- * 3. 前一天休市預告：若明日台股或美股節日休市，必定在 14:05 提前通知！
- * 4. 嚴禁任何停損停利、風控、守護本金、勝率統計等廢話
- * 5. 連假或國定假日當天休市絕不推播
+ * 依使用者嚴格指示改版：
+ * 上半段（給你秒懂）：不講廢話，3秒看懂「明天到底會漲還是跌、0056/006208 現況、能不能追」。
+ * 下半段（給你朋友看門道）：附上內行人真正關心的「硬派籌碼與關鍵點位」，讓她一眼看出 AI 是憑什麼邏輯判斷的。
  */
 export const runPostMarketScan = async () => {
   // 檢查是否為台股正常交易日（國定假日、連假、颱風假休市絕不推播）
@@ -23,9 +20,8 @@ export const runPostMarketScan = async () => {
 
   logger.info('PostMarket', '📊 執行 14:05 大盤明日漲跌預測與深度剖析推播...');
 
-  const bot = getBot();
   const rawChatId = process.env.TELEGRAM_CHAT_ID;
-  if (!bot || !rawChatId) {
+  if (!rawChatId) {
     logger.warn('PostMarket', '未設定 Telegram，跳過 14:05 推播');
     return;
   }
@@ -33,11 +29,13 @@ export const runPostMarketScan = async () => {
   const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
 
   try {
-    const [q56, q6208, tseQuote, news] = await Promise.all([
+    const [q56, q6208, tseQuote, tsmcQuote, honhaiQuote, news] = await Promise.all([
       getQuote('0056'),
       getQuote('006208'),
       getQuote('IX0001'),
-      fetchLatestStockNews(12)
+      getQuote('2330'),
+      getQuote('2317'),
+      fetchLatestStockNews(10)
     ]);
 
     const price56 = q56?.closePrice || q56?.lastPrice || 0;
@@ -51,8 +49,18 @@ export const runPostMarketScan = async () => {
     const tseClose = tseQuote?.closePrice || tseQuote?.lastPrice || 0;
     const tseChange = parseFloat(tseQuote?.changePercent || tseQuote?.change || 0);
     const tseSign = tseChange >= 0 ? '+' : '';
+    const rawVal = tseQuote?.total?.tradeValue || 0;
+    const tseValBillion = Math.round(rawVal / 100000000);
 
-    const newsText = news.map((n, i) => `${i + 1}. ${n.title}`).join('\n');
+    const tsmcPrice = tsmcQuote?.lastPrice || tsmcQuote?.closePrice || 0;
+    const tsmcChange = parseFloat(tsmcQuote?.changePercent || tsmcQuote?.change || 0);
+    const tsmcSign = tsmcChange >= 0 ? '+' : '';
+
+    const honhaiPrice = honhaiQuote?.lastPrice || honhaiQuote?.closePrice || 0;
+    const honhaiChange = parseFloat(honhaiQuote?.changePercent || honhaiQuote?.change || 0);
+    const honhaiSign = honhaiChange >= 0 ? '+' : '';
+
+    const newsText = (news || []).map((n, i) => `${i + 1}. ${n.title}`).join('\n');
 
     // 檢查明日台股或美股是否有休市（提前在 14:05 預告）
     const holidayAlerts = getMarketHolidayAlerts();
@@ -61,7 +69,7 @@ export const runPostMarketScan = async () => {
       holidaySection = '\n' + holidayAlerts.join('\n') + '\n';
     }
 
-    let aiVerdict = '明日預測：資料不足，無法精準研判';
+    let aiVerdict = '明日研判：資料結算中，請維持既有紀律。';
 
     if (process.env.GEMINI_API_KEY) {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -72,31 +80,39 @@ export const runPostMarketScan = async () => {
         }
       });
 
-      const prompt = `你是一位講話極度直白、實戰經驗豐富的台股老手。
+      const prompt = `你是一位講話極度直白、實戰經驗豐富的台股頂尖老手操盤人。
 現在今日台股盤後數據已正式結算：
 
 【今日收盤數據】：
-- 0056 (元大高股息)：收盤價 ${price56} 元 (${sign56}${change56}%)
-- 006208 (富邦台50)：收盤價 ${price6208} 元 (${sign6208}${change6208}%)
-- 加權指數大盤：收盤 ${tseClose} 點 (${tseSign}${tseChange}%)
+- 加權指數大盤：收盤 ${tseClose} 點 (${tseSign}${tseChange}%)，全日成交量約 ${tseValBillion} 億元
+- 0056 (元大高股息)：收盤價 NT$ ${price56} (${sign56}${change56}%)
+- 006208 (富邦台50)：收盤價 NT$ ${price6208} (${sign6208}${change6208}%)
+- 台積電 (2330)：收盤價 NT$ ${tsmcPrice} (${tsmcSign}${tsmcChange}%)
+- 鴻海 (2317)：收盤價 NT$ ${honhaiPrice} (${honhaiSign}${honhaiChange}%)
 
 【今日重大財經要聞】：
 ${newsText}
 
 【任務要求】：
-這份推播會發到群組裡：一位要看最白話、最直接的結論（老闆）；一位懂比較多、想看具體依據與關鍵點位（朋友）。
+這份推播會發到群組裡，群內有兩位對象，請嚴格按照以下兩段結構輸出：
+上半段（給你秒懂）：不講廢話，讓老闆 3 秒看懂「明天到底會漲還是跌、0056/006208 現況、能不能追」。
+下半段（給你朋友看門道）：附上內行人真正關心的「硬派籌碼與關鍵點位」，讓她一眼看出 AI 是憑什麼邏輯判斷的。
 
 【必須遵守的格式】（嚴禁多餘廢話，直接輸出）：
-🟢 【明日大盤方向速讀】（給老闆看）
-• 明日加權指數：【漲】（或【跌】/【震盪偏多】/【震盪偏空】）
-• 明日方針一句話：用一句最直白大白話告訴老闆明天怎麼應對（例如：安心續抱 / 逢回分批加碼 / 勿追高等拉回）。
+📱 【上半段：給你秒懂】
+• 明天到底會漲還是跌：【漲】（或【跌】/【震盪偏多】/【震盪偏空】）
+• 0056 / 006208 現況：用一句大白話總結這兩檔今天的表現狀態與強弱
+• 能不能追：【不可追，等拉回】（或【可以逢低分批買】/【續抱不動，切勿追高】/【反彈減碼】）
+• 明日行動一句話：給老闆的最直接叮嚀
 
-🔍 【深度操盤邏輯與關鍵點位】（給朋友看）
-1. 權值架構與主力動態：用 2~3 句實話剖析台積電等權值股動能，以及主力真實意圖（是真拉抬還是避險掩護）。
+🔍 【下半段：給你朋友看門道】
+1. AI 是憑什麼邏輯判斷的：
+   - 權值股動能：剖析台積電 (${tsmcPrice}) 與權值股是真攻還是掩護出貨
+   - 量價結構與籌碼意圖：以今日成交量 (${tseValBillion} 億) 剖析主力大戶真實意圖（換手、洗盤還是實質買進）
 2. 明日關鍵防守界線（以今日 ${tseClose} 點為基準估算）：
    • 上檔壓力：約 [點位] 點
-   • 多空強弱線：約 [點位] 點
-   • 下檔支撐：約 [點位] 點
+   • 多空強弱分水嶺：約 [點位] 點
+   • 下檔防守支撐：約 [點位] 點
 
 【絕對禁止出現以下詞彙與廢話】：
 - 嚴禁提及「建議觀望」、「投資盈虧自負」、「請謹慎評估」、「守護本金」、「停損停利」、「勝率」。
@@ -109,23 +125,17 @@ ${newsText}
     const html = `🎯 <b>【14:05 大盤明日預測與深度剖析】— ${today}</b>
 
 <b>📌 今日核心收盤：</b>
+• <b>加權指數：</b><code>${tseClose} 點 (${tseSign}${tseChange}%) | 成交約 ${tseValBillion} 億</code>
 • <b>0056 元大高股息：</b><code>NT$ ${price56} (${sign56}${change56}%)</code>
 • <b>006208 富邦台50：</b><code>NT$ ${price6208} (${sign6208}${change6208}%)</code>
-• <b>加權指數大盤：</b><code>${tseClose} 點 (${tseSign}${tseChange}%)</code>
+• <b>核心權值：</b>台積電 <code>NT$ ${tsmcPrice} (${tsmcSign}${tsmcChange}%)</code> | 鴻海 <code>NT$ ${honhaiPrice} (${honhaiSign}${honhaiChange}%)</code>
 ${holidaySection}
-<b>🔮 AI 明日研判：</b>
+<b>🔮 AI 老手研判：</b>
 <pre>${aiVerdict}</pre>`;
 
-    const chatIds = String(rawChatId).split(',').map(s => s.trim()).filter(Boolean);
-    for (const cid of chatIds) {
-      try {
-        await bot.sendMessage(cid, html, { parse_mode: 'HTML' });
-      } catch (err) {
-        logger.error('PostMarket', `發送推播至 ${cid} 失敗: ${err.message}`);
-      }
-    }
-    logger.info('PostMarket', `✅ 14:05 0056 & 006208 明日漲跌推播已發送至 ${chatIds.length} 個聊天室/群組`);
+    await sendHTML(html);
+    logger.info('PostMarket', '✅ 14:05 大盤明日預測與深度剖析推播發送完成');
   } catch (e) {
-    logger.error('PostMarket', '14:05 推播失敗: ' + e.message);
+    logger.error('PostMarket', '14:05 推播失敗: ' + e.message, e);
   }
 };
