@@ -65,7 +65,7 @@ export const initTelegramBot = () => {
   }
 };
 
-const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
+export const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
   const bot = getBot();
   const rawChatId = overrideChatId || process.env.TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID;
   

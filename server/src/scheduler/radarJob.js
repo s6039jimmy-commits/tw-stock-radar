@@ -7,6 +7,7 @@ import { scan as scanCustom } from '../services/radar/customScanner.js';
 import { scanNightSession } from '../services/radar/nightScanner.js';
 import { generatePreMarketReport } from '../services/radar/preMarketScanner.js';
 import { runPostMarketScan } from '../services/radar/postMarketScanner.js';
+import { runMiddayScan } from '../services/radar/middayScanner.js';
 import { getTradeStats } from '../db/database.js';
 import { sendDailySummary } from '../services/notify/telegram.js';
 import { logger } from '../utils/logger.js';
@@ -82,6 +83,15 @@ export const startRadarJobs = () => {
   
   // 依使用者指示：取消 14:00 統計推播（不要勝率、不要風控廢話）
   // cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);
+
+  // 🍱 選擇 B：11:30 午盤快報（一天只發一次）：大盤上午戰況、預估成交量、權值強弱、大戶偷拉偷殺
+  cron.schedule('30 11 * * 1-5', () => {
+    if (isTradingDay()) {
+      runMiddayScan();
+    } else {
+      logger.info('Scheduler', '今日為台股休市日／連假，跳過 11:30 午盤快報');
+    }
+  }, options);
 
   // 🎯 14:05 唯一盤後推播：大盤指數明日漲跌預測（僅在正常交易日發送，連假休市絕不推播）
   cron.schedule('5 14 * * 1-5', () => {

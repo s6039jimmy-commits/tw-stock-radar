@@ -4,6 +4,7 @@ import { isMarketOpen } from '../utils/helpers.js';
 import { getActivePositions, getSetting } from '../db/database.js';
 import { evaluatePosition, evaluatePositionNewsOnly } from '../services/monitor/exitEngine.js';
 import { connect, disconnect } from '../services/fugle/streaming.js';
+import { checkMarketCrash } from '../services/monitor/crashMonitor.js';
 import { logger } from '../utils/logger.js';
 
 export const runPriceCheck = async () => {
@@ -32,6 +33,13 @@ export const stopStreaming = () => disconnect();
 export const startMonitorJobs = () => {
   cron.schedule(`*/${MONITOR_SCAN_INTERVAL_MIN} * * * 1-5`, () => {
     if (isMarketOpen()) runPriceCheck();
+  });
+
+  // 🚨 選擇 C：【緊急防護】大盤大暴跌才叫（平常完全安靜，只有當天加權指數突發暴跌超過 1.5% 時在群組警報）
+  cron.schedule('*/3 9-13 * * 1-5', () => {
+    if (isMarketOpen()) {
+      checkMarketCrash();
+    }
   });
 
   // 動態檢查盤前預警時間 (每分鐘檢查一次)
