@@ -16,18 +16,73 @@ let holidayCache = new Set([
   '2026-10-25', '2026-10-26', // 臺灣光復紀念日
   '2026-12-25'  // 行憲紀念日
 ]);
+let holidayNames = new Map([
+  ['2026-01-01', '中華民國開國紀念日'],
+  ['2026-02-12', '春節結算無交易日'],
+  ['2026-02-13', '春節結算無交易日'],
+  ['2026-02-15', '農曆除夕及春節'],
+  ['2026-02-16', '農曆除夕及春節'],
+  ['2026-02-17', '農曆除夕及春節'],
+  ['2026-02-18', '農曆除夕及春節'],
+  ['2026-02-19', '農曆除夕及春節'],
+  ['2026-02-20', '農曆除夕及春節補假'],
+  ['2026-02-27', '和平紀念日補假'],
+  ['2026-02-28', '和平紀念日'],
+  ['2026-04-03', '兒童節及民族掃墓節'],
+  ['2026-04-04', '兒童節及民族掃墓節'],
+  ['2026-04-05', '民族掃墓節'],
+  ['2026-04-06', '民族掃墓節補假'],
+  ['2026-05-01', '勞動節'],
+  ['2026-06-19', '端午節'],
+  ['2026-09-25', '中秋節'],
+  ['2026-09-28', '孔子誕辰/教師節'],
+  ['2026-10-09', '國慶日補假'],
+  ['2026-10-10', '國慶日'],
+  ['2026-10-25', '臺灣光復紀念日'],
+  ['2026-10-26', '臺灣光復紀念日補假'],
+  ['2026-12-25', '行憲紀念日']
+]);
 let lastHolidayFetch = 0;
 const HOLIDAY_CACHE_TTL = 24 * 60 * 60 * 1000; // 每天更新一次
 
-// 美股 (NYSE / NASDAQ) 官方節日休市日曆 (2025-2027)
-export const US_HOLIDAYS = new Set([
+// 美股 (NYSE / NASDAQ) 官方節日休市日曆名稱對照 (2025-2027)
+export const US_HOLIDAY_NAMES = new Map([
   // 2025
-  '2025-01-01', '2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26', '2025-06-19', '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25',
+  ['2025-01-01', '元旦 (New Year)'],
+  ['2025-01-20', '馬丁路德金紀念日 (MLK Day)'],
+  ['2025-02-17', '華盛頓誕辰/總統日 (Presidents Day)'],
+  ['2025-04-18', '耶穌受難日 (Good Friday)'],
+  ['2025-05-26', '陣亡將士紀念日 (Memorial Day)'],
+  ['2025-06-19', '六月節獨立日 (Juneteenth)'],
+  ['2025-07-04', '獨立紀念日 (Independence Day)'],
+  ['2025-09-01', '勞動節 (Labor Day)'],
+  ['2025-11-27', '感恩節 (Thanksgiving)'],
+  ['2025-12-25', '聖誕節 (Christmas)'],
   // 2026
-  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+  ['2026-01-01', '元旦 (New Year)'],
+  ['2026-01-19', '馬丁路德金紀念日 (MLK Day)'],
+  ['2026-02-16', '華盛頓誕辰/總統日 (Presidents Day)'],
+  ['2026-04-03', '耶穌受難日 (Good Friday)'],
+  ['2026-05-25', '陣亡將士紀念日 (Memorial Day)'],
+  ['2026-06-19', '六月節獨立日 (Juneteenth)'],
+  ['2026-07-03', '獨立紀念日補假 (Independence Day)'],
+  ['2026-09-07', '勞動節 (Labor Day)'],
+  ['2026-11-26', '感恩節 (Thanksgiving)'],
+  ['2026-12-25', '聖誕節 (Christmas)'],
   // 2027
-  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24'
+  ['2027-01-01', '元旦 (New Year)'],
+  ['2027-01-18', '馬丁路德金紀念日 (MLK Day)'],
+  ['2027-02-15', '華盛頓誕辰/總統日 (Presidents Day)'],
+  ['2027-03-26', '耶穌受難日 (Good Friday)'],
+  ['2027-05-31', '陣亡將士紀念日 (Memorial Day)'],
+  ['2027-06-18', '六月節獨立日補假 (Juneteenth)'],
+  ['2027-07-05', '獨立紀念日補假 (Independence Day)'],
+  ['2027-09-06', '勞動節 (Labor Day)'],
+  ['2027-11-25', '感恩節 (Thanksgiving)'],
+  ['2027-12-24', '聖誕節補假 (Christmas)']
 ]);
+
+export const US_HOLIDAYS = new Set(US_HOLIDAY_NAMES.keys());
 
 /**
  * 檢查美股當天是否開盤（排除六日與美股官方國定假日）
@@ -41,6 +96,59 @@ export const isUsTradingDay = (date = new Date()) => {
   const d = String(usTime.getDate()).padStart(2, '0');
   const dateStr = `${year}-${month}-${d}`;
   return !US_HOLIDAYS.has(dateStr);
+};
+
+/**
+ * 取得明日台股與美股的休市預警通知（若有國定假日或節日休市）
+ * 排除常規週六日，專門提示「明日國定假日休市」與「美股節日休市」
+ */
+export const getMarketHolidayAlerts = (baseDate = new Date()) => {
+  const alerts = [];
+  
+  // 1. 計算明日 (台北時區)
+  const twToday = new Date(baseDate.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  const twTomorrow = new Date(twToday.getTime() + 24 * 60 * 60 * 1000);
+  const twTomorrowDay = twTomorrow.getDay(); // 0 是週日, 6 是週六
+  
+  const y = twTomorrow.getFullYear();
+  const m = String(twTomorrow.getMonth() + 1).padStart(2, '0');
+  const d = String(twTomorrow.getDate()).padStart(2, '0');
+  const twTomorrowStr = `${y}-${m}-${d}`;
+  
+  // 檢查明日是否為台股國定假日（排除普通六日）
+  if (holidayCache.has(twTomorrowStr)) {
+    const hName = holidayNames.get(twTomorrowStr) || '國定假日';
+    alerts.push(`🏮 <b>【台股明日休市提醒】</b>：明日 (${m}/${d}) 適逢「${hName}」台股休市一日，明日 14:05 暫停推播。`);
+  } else if (twTomorrowDay === 6) {
+    alerts.push(`🏖️ <b>【週末休市提醒】</b>：明日進入週末休市，祝週末愉快！下週一 14:05 準時恢復預測。`);
+  }
+
+  // 2. 檢查今晚/明日美股是否休市
+  // 台北時間 14:05 時，美股即將在今晚開盤 (美股當天早上)
+  const usToday = new Date(baseDate.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const uy = usToday.getFullYear();
+  const um = String(usToday.getMonth() + 1).padStart(2, '0');
+  const ud = String(usToday.getDate()).padStart(2, '0');
+  const usTodayStr = `${uy}-${um}-${ud}`;
+  
+  // 今晚美股是否有節日休市
+  if (US_HOLIDAY_NAMES.has(usTodayStr)) {
+    const usHName = US_HOLIDAY_NAMES.get(usTodayStr);
+    alerts.push(`🗽 <b>【美股今晚休市提醒】</b>：美股今晚適逢「${usHName}」全日休市，無夜盤 ADR 波動。`);
+  }
+  
+  // 明天晚上美股是否休市 (如果明天是平日)
+  const usTomorrow = new Date(usToday.getTime() + 24 * 60 * 60 * 1000);
+  const uy2 = usTomorrow.getFullYear();
+  const um2 = String(usTomorrow.getMonth() + 1).padStart(2, '0');
+  const ud2 = String(usTomorrow.getDate()).padStart(2, '0');
+  const usTomorrowStr = `${uy2}-${um2}-${ud2}`;
+  if (US_HOLIDAY_NAMES.has(usTomorrowStr) && usTomorrow.getDay() !== 0 && usTomorrow.getDay() !== 6) {
+    const usHName2 = US_HOLIDAY_NAMES.get(usTomorrowStr);
+    alerts.push(`🗽 <b>【美股明日休市預告】</b>：美股明日 (${um2}/${ud2}) 適逢「${usHName2}」全日休市。`);
+  }
+  
+  return alerts;
 };
 
 /**
