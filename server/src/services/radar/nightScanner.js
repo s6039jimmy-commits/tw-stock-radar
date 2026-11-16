@@ -92,10 +92,33 @@ export const scanNightSession = async () => {
         html += `報價：${item.quote.price} ${item.quote.currency}\n\n`;
       }
       
-      html += `⚠️ <i>這暗示明天台股開盤極可能會出現明顯跳空，請提前做好準備！</i>`;
-      
+      // 動態由 AI 分析今晚美股與 ADR 劇烈波動的真正原因，絕不使用寫死罐頭文字
+      let dynamicReason = '';
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { temperature: 0.0 } });
+          const itemsDesc = triggeredAlerts.map(i => `${i.info.name}(${i.ticker}): ${i.changePct > 0 ? '+' : ''}${i.changePct}%`).join(', ');
+          const prompt = `今晚美股夜盤 ADR 波動劇烈：${itemsDesc}。
+請用 1~2 句最白話、最專業的台股操盤手語言，講出今晚美股發生了什麼事導致這個波動，以及明天台股開盤受影響的具體狀況。
+絕對禁止使用「這暗示明天台股開盤極可能會出現明顯跳空，請提前做好準備！」等機器人罐頭套話，直接給出有依據的真實原因。`;
+          const res = await model.generateContent(prompt);
+          dynamicReason = res.response.text().trim();
+        } catch (e) {
+          logger.warn('Night Scanner', 'AI 分析夜盤原因失敗: ' + e.message);
+        }
+      }
+
+      if (dynamicReason) {
+        html += `<b>💡 AI 夜盤即時剖析：</b>\n<pre>${dynamicReason}</pre>`;
+      }
+
       try {
-        await bot.sendMessage(chatId, html, { parse_mode: 'HTML' });
+        const chatIds = String(chatId).split(',').map(s => s.trim()).filter(Boolean);
+        for (const cid of chatIds) {
+          await bot.sendMessage(cid, html, { parse_mode: 'HTML' });
+        }
         // 標記為已發送
         for (const item of triggeredAlerts) {
           await setSetting(item.alertKey, 'true');
