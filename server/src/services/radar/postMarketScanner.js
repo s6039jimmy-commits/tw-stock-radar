@@ -25,8 +25,8 @@ export const runPostMarketScan = async () => {
   logger.info('PostMarket', '📊 執行 14:05 0056 與 006208 明日漲跌預測推播...');
 
   const bot = getBot();
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!bot || !chatId) {
+  const rawChatId = process.env.TELEGRAM_CHAT_ID;
+  if (!bot || !rawChatId) {
     logger.warn('PostMarket', '未設定 Telegram，跳過 14:05 推播');
     return;
   }
@@ -106,8 +106,15 @@ ${newsText}
 <b>🔮 明日加權指數漲跌判斷與原因：</b>
 <pre>${aiVerdict}</pre>`;
 
-    await bot.sendMessage(chatId, html, { parse_mode: 'HTML' });
-    logger.info('PostMarket', '✅ 14:05 0056 & 006208 明日漲跌推播已成功發送至 Telegram');
+    const chatIds = String(rawChatId).split(',').map(s => s.trim()).filter(Boolean);
+    for (const cid of chatIds) {
+      try {
+        await bot.sendMessage(cid, html, { parse_mode: 'HTML' });
+      } catch (err) {
+        logger.error('PostMarket', `發送推播至 ${cid} 失敗: ${err.message}`);
+      }
+    }
+    logger.info('PostMarket', `✅ 14:05 0056 & 006208 明日漲跌推播已發送至 ${chatIds.length} 個聊天室/群組`);
   } catch (e) {
     logger.error('PostMarket', '14:05 推播失敗: ' + e.message);
   }

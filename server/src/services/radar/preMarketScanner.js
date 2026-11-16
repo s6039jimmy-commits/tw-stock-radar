@@ -48,9 +48,9 @@ export const generatePreMarketReport = async () => {
 
     // 5. 發送 Telegram 晨間早報
     const bot = getBot();
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const rawChatId = process.env.TELEGRAM_CHAT_ID;
 
-    if (!bot || !chatId) {
+    if (!bot || !rawChatId) {
       logger.warn('PreMarket', '未設定 Telegram，跳過發送');
       return;
     }
@@ -67,7 +67,14 @@ export const generatePreMarketReport = async () => {
 <b>📰 今日重點新聞：</b>
 <i>${newsText}</i>`;
 
-    await bot.sendMessage(chatId, htmlMarket, { parse_mode: 'HTML' });
+    const chatIds = String(rawChatId).split(',').map(s => s.trim()).filter(Boolean);
+    for (const cid of chatIds) {
+      try {
+        await bot.sendMessage(cid, htmlMarket, { parse_mode: 'HTML' });
+      } catch (err) {
+        logger.error('PreMarket', `發送晨報至 ${cid} 失敗: ${err.message}`);
+      }
+    }
 
     // 依使用者指示：全面取消個股進場清單推播，只保留大盤方向
     // 不再推播任何個股名單

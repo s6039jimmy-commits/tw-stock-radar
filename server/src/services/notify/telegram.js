@@ -67,23 +67,29 @@ export const initTelegramBot = () => {
 
 const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
   const bot = getBot();
-  const chatId = overrideChatId || process.env.TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID;
+  const rawChatId = overrideChatId || process.env.TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID;
   
-  if (!bot || !chatId) {
+  if (!bot || !rawChatId) {
     logger.warn('Telegram', '未設定 Bot Token 或 Chat ID，無法發送訊息');
     return false;
   }
   
-  try {
-    const opts = { parse_mode: 'HTML' };
-    if (replyMarkup) opts.reply_markup = replyMarkup;
-    await bot.sendMessage(chatId, html, opts);
-    logger.info('Telegram', '訊息發送成功');
-    return true;
-  } catch (error) {
-    logger.error('Telegram', '發送訊息失敗: ' + error.message);
-    return false;
+  const chatIds = String(rawChatId).split(',').map(s => s.trim()).filter(Boolean);
+  let anySuccess = false;
+  for (const chatId of chatIds) {
+    try {
+      const opts = { parse_mode: 'HTML' };
+      if (replyMarkup) opts.reply_markup = replyMarkup;
+      await bot.sendMessage(chatId, html, opts);
+      anySuccess = true;
+    } catch (error) {
+      logger.error('Telegram', `發送訊息至 ${chatId} 失敗: ` + error.message);
+    }
   }
+  if (anySuccess) {
+    logger.info('Telegram', `訊息發送成功 (${chatIds.length} 個聊天室/群組)`);
+  }
+  return anySuccess;
 };
 
 export const sendEntrySignal = async (signal) => {
