@@ -101,13 +101,7 @@ export const processUserQuestion = async (userText) => {
     }
   }
 
-  // 3. 處理「all in / 歐印」等特定高頻交易問答
-  const lowerQuery = cleanQuery.toLowerCase();
-  if (lowerQuery.includes('all in') || lowerQuery.includes('歐印') || lowerQuery.includes('身家') || lowerQuery.includes('滿倉')) {
-    return `冷靜！現在大盤還在回檔洗盤，絕對【不建議歐印】！這種震盪盤勢把資金一次砸進去，很容易直接套在半山腰。真想進場也只能分批買 0050 或 006208，手上保留 4 成現金才是真贏家！`;
-  }
-
-  // 4. AI 分析生成回答 (自然、聰明、像真人操盤手在群組隨手回，俐落有重點)
+  // 3. AI 分析生成回答 (無死板攔截，讓 AI 自由發揮，但堅守操盤手風格與明確買賣定調)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -121,10 +115,11 @@ export const processUserQuestion = async (userText) => {
 ${quoteInfo ? quoteInfo : ''}
 
 【回覆風格要求】：
-1. 像真人高手在群組打字一樣自然流暢，嚴禁任何開場白（不要「您好」、「收到提問」），也嚴禁死板的報告格式（不要「【🏛️ 盤勢快評】」、「🎯 核心定調」、「👉 想買者」這種笨重模板！）。
+1. 像真人高手在群組打字一樣自然流暢、自由發揮，嚴禁任何開場白（不要「您好」、「收到提問」），也嚴禁死板的報告格式（不要「【🏛️ 盤勢快評】」、「🎯 核心定調」、「👉 想買者」這種笨重模板！）。
 2. 控制在 2~4 句話內（80~120 字），言簡意賅，直接切中要害。
-3. 絕不講「觀望」這種廢話！必須明確給出答案：到底是【建議買進/加碼】還是【不建議碰/建議賣出】！
-4. 若是問個股，直接點出關鍵支撐或停損價位，空手與持股者一句話帶過。`;
+3. 絕不講「觀望」這種廢話！必須明確給出答案：到底是【建議買進/加碼】還是【不建議碰/建議賣出停損】！
+4. 若問個股，直接點出關鍵支撐或停損價位，空手與持股者一句話帶過。
+5. 若問「all in / 歐印 / 借錢」等極端躁進操作，用操盤手犀利直白、毒舌中肯的方式打醒或指引，明確給出結論！`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
