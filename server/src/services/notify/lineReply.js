@@ -101,7 +101,13 @@ export const processUserQuestion = async (userText) => {
     }
   }
 
-  // 3. AI 分析生成回答 (專業、偏主觀、智慧俐落、像投顧首席操盤手)
+  // 3. 處理「all in / 歐印」等特定高頻交易問答
+  const lowerQuery = cleanQuery.toLowerCase();
+  if (lowerQuery.includes('all in') || lowerQuery.includes('歐印') || lowerQuery.includes('身家') || lowerQuery.includes('滿倉')) {
+    return `冷靜！現在大盤還在回檔洗盤，絕對【不建議歐印】！這種震盪盤勢把資金一次砸進去，很容易直接套在半山腰。真想進場也只能分批買 0050 或 006208，手上保留 4 成現金才是真贏家！`;
+  }
+
+  // 4. AI 分析生成回答 (自然、聰明、像真人操盤手在群組隨手回，俐落有重點)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -110,117 +116,62 @@ export const processUserQuestion = async (userText) => {
         generationConfig: { temperature: 0.3 }
       });
 
-      const prompt = `你是一位擁有 20 年實戰經驗的頂尖外資與投顧首席台股操盤分析師（名字叫財神熊）。
-現在使用者在 LINE 群組裡 @你 提問：「${cleanQuery}」
+      const prompt = `你是一個在 LINE 群組裡講話俐落、極度聰明的高勝率台股操盤高手（財神熊）。
+群組朋友提問：「${cleanQuery}」
 ${quoteInfo ? quoteInfo : ''}
 
-【回覆口吻與專業要求】：
-1. 直接回答，嚴禁任何開場白（嚴禁出現「收到您的提問」、「您好」等廢話開頭）。
-2. 像真正的資深專業操盤手，講話一針見血、數據紮實、條理分明。
-3. 【最重要原則】：嚴禁使用「觀望」兩個字敷衍！必須給出清晰的答案：到底是【建議買進 / 加碼】還是【不建議進場 / 建議賣出減碼】！
-4. 針對「想買進的人（空手者）」和「手上有部位的人（持股者）」分別給出具體點位與操作步驟（如支撐點、壓力點、停損停利點）。
-5. 控制在 120~180 字內，排版乾淨俐落，讓使用者在手機上 3 秒看懂重點。
-6. 嚴禁出現「老手」、「投資盈虧自負」、「請謹慎評估」等官腔免責廢話。`;
+【回覆風格要求】：
+1. 像真人高手在群組打字一樣自然流暢，嚴禁任何開場白（不要「您好」、「收到提問」），也嚴禁死板的報告格式（不要「【🏛️ 盤勢快評】」、「🎯 核心定調」、「👉 想買者」這種笨重模板！）。
+2. 控制在 2~4 句話內（80~120 字），言簡意賅，直接切中要害。
+3. 絕不講「觀望」這種廢話！必須明確給出答案：到底是【建議買進/加碼】還是【不建議碰/建議賣出】！
+4. 若是問個股，直接點出關鍵支撐或停損價位，空手與持股者一句話帶過。`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
       if (text) return text;
     } catch (err) {
-      logger.warn('LINEReply', 'Gemini API 異常，啟用頂級專業操盤決策引擎: ' + err.message);
+      logger.warn('LINEReply', 'Gemini API 異常，啟用真人自然口吻量化引擎: ' + err.message);
     }
   }
 
-  // 4. 頂級專業量化決策引擎 (以即時量價、籌碼、Pivot 支撐壓力產出專業建議，絕不給模稜兩可的觀望)
+  // 5. 本地高智商量化引擎 (自然對話流、無死板標題、2~4句講完重點)
   if (detectedSymbol && currentQuote) {
     const close = currentQuote.closePrice || currentQuote.lastPrice || 0;
-    const open = currentQuote.openPrice || close;
-    const high = currentQuote.highPrice || close;
-    const low = currentQuote.lowPrice || close;
     const change = currentQuote.change || 0;
     const changePct = parseFloat(currentQuote.changePercent || 0);
     const sign = change >= 0 ? '+' : '';
-
-    const volume = currentQuote.total?.tradeVolume || 0;
-    const valBillion = ((currentQuote.total?.tradeValue || 0) / 100000000).toFixed(2);
-    const bidVol = currentQuote.total?.tradeVolumeAtBid || 0;
-    const askVol = currentQuote.total?.tradeVolumeAtAsk || 0;
-    const totalBidAsk = bidVol + askVol || 1;
-    const askRatio = ((askVol / totalBidAsk) * 100).toFixed(1);
-    const bidRatio = ((bidVol / totalBidAsk) * 100).toFixed(1);
-
+    const low = currentQuote.lowPrice || close;
+    const high = currentQuote.highPrice || close;
     const pivot = (high + low + close) / 3;
-    const sup1 = (2 * pivot - high).toFixed(2);
-    const res1 = (2 * pivot - low).toFixed(2);
-    const amp = (((high - low) / (close - change || 1)) * 100).toFixed(2);
-
-    let stance = '';
-    let emptyHandAdvice = '';
-    let holderAdvice = '';
+    const sup1 = (2 * pivot - high).toFixed(1);
+    const volume = currentQuote.total?.tradeVolume ? `，成交量 ${(currentQuote.total.tradeVolume / 1000).toFixed(1)}k 張` : '';
 
     if (changePct <= -3.5) {
-      stance = '【明確不建議進場！建議逢反彈減碼出清】';
-      emptyHandAdvice = `【絕對不建議進場摸底接刀】！短線放量下殺振幅達 ${amp}%，賣方倒內盤佔 ${bidRatio}%，第一道強支撐下移至 ${sup1} 元，未見連續縮量收腳前，任何拉抬皆為主力逃命波，切勿躁進。`;
-      holderAdvice = `【建議逢盤中反彈分批停損/減碼】！關鍵防守點看今日低點 ${low.toFixed(2)} 元，一旦失守恐引發多殺多斷頭潮，務必壯士斷腕收回現金。`;
+      return `${detectedSymbol} ${stockName || detectedSymbol} 今天重挫 ${sign}${changePct.toFixed(2)}% 收在 ${close} 元${volume}，破線賣壓非常沉重。
+明確【不建議進場接刀】！短線下方支撐先看 ${sup1} 元；手上有持股的建議趁反彈減碼出清，若跌破今日低點 ${low.toFixed(1)} 元務必嚴格停損，千萬別盲目凹單！`;
     } else if (changePct <= -1.0) {
-      stance = '【暫不建議進場摸底，待回測支撐有守再看】';
-      emptyHandAdvice = `【暫不建議進場追價】！今日回檔消化賣壓，內盤拋售佔 ${bidRatio}%，先觀察支撐位 ${sup1} 元附近是否有主力大單護盤收腳，站穩前切忌猜底。`;
-      holderAdvice = `【持股建議續抱但設緊防守】！以 ${low.toFixed(2)} 元為關鍵防守點，若跌破建議減碼 1/3 控管風險。`;
+      return `${detectedSymbol} ${stockName || detectedSymbol} 今天回檔 ${sign}${changePct.toFixed(2)}% 收 ${close} 元${volume}，技術面回測均線整理。
+【暫不建議追價，先等回測站穩】！下方防守看 ${sup1} 元，有守再考慮分批低接；已有持股者續抱即可，跌破 ${low.toFixed(1)} 元再考慮減碼。`;
     } else if (changePct >= 3.5) {
-      stance = '【強烈建議順勢加碼 / 偏多積極操作】';
-      emptyHandAdvice = `【建議逢盤中壓回分批買進】！多頭帶量噴出，主動敲外盤比達 ${askRatio}%，回測支撐 ${sup1} 元為優質上車點，切勿空手乾瞪眼。`;
-      holderAdvice = `【強烈建議持股續抱享受波段】！將今日低點 ${low.toFixed(2)} 元設為移動停利點，讓利潤奔跑。`;
+      return `${detectedSymbol} ${stockName || detectedSymbol} 今天帶量強攻 ${sign}${changePct.toFixed(2)}% 衝到 ${close} 元${volume}，多方攻擊氣勢很強！
+【建議順勢加碼 / 偏多操作】！回測支撐 ${sup1} 元不破都是好買點；持有者建議抱緊讓獲利奔跑，將停利點設在 ${low.toFixed(1)} 元。`;
     } else if (changePct >= 0.5) {
-      stance = '【建議逢低分批布局 / 偏多看待】';
-      emptyHandAdvice = `【建議逢低建倉買進】！走勢抗跌墊高，守穩均線，外盤買單佔 ${askRatio}%，拉回靠近 ${sup1} 元可分批少量卡位。`;
-      holderAdvice = `【建議持股續抱】！只要未跌破 ${low.toFixed(2)} 元，多方防禦結構完好，安心持股。`;
+      return `${detectedSymbol} ${stockName || detectedSymbol} 今天逆勢抗跌 ${sign}${changePct.toFixed(2)}% 收 ${close} 元${volume}，底部逐步墊高、守穩支撐。
+【建議逢拉回分批布局】！靠近 ${sup1} 元可分批少量買進；手上有持股的續抱即可，多方防守結構完好。`;
     } else {
-      stance = '【空手不建議追、持股建議續抱盯緊防守點】';
-      emptyHandAdvice = `【暫不建議進場消耗資金】！在未放量突破短壓 ${res1} 元前，進場易陷入盤整泥淖，建議把錢留在更有動能的標的。`;
-      holderAdvice = `【建議持股續抱，以 ${low.toFixed(2)} 元為防守基準】！守住可續抱，跌破則減碼。`;
+      return `${detectedSymbol} ${stockName || detectedSymbol} 目前在 ${low.toFixed(1)} ~ ${high.toFixed(1)} 元窄幅整理，收 ${close} 元${volume}，多空量縮拉鋸。
+【空手不建議追，持股建議續抱】！未突破壓力前進場容易被磨損耐心，持股以 ${low.toFixed(1)} 元為防守點守住續抱即可。`;
     }
-
-    const volumeLine = volume > 0 ? `\n• 盤面量能：成交 ${volume.toLocaleString()} 張 (約 ${valBillion} 億) | 外盤主動買 ${askRatio}% vs 內盤倒貨 ${bidRatio}%` : '';
-    const supportLine = high > 0 ? `\n• 關鍵防線：強支撐 ${sup1} 元 | 短壓 ${res1} 元` : '';
-
-    return [
-      `【${detectedSymbol} ${stockName || detectedSymbol} 專業盤勢診斷】`,
-      `• 即時報價：NT$ ${close} (${sign}${change} / ${sign}${changePct.toFixed(2)}%)${volumeLine}${supportLine}`,
-      '',
-      `🎯 核心定調：${stance}`,
-      '',
-      `📋 實戰操作指引：`,
-      `👉 想買進者（空手）：${emptyHandAdvice}`,
-      `👉 手上有者（持股）：${holderAdvice}`
-    ].join('\n');
   }
 
-  // 5. 針對「現在還有什麼可以買」、「大盤怎麼看」、「推薦什麼」的提問直接給出明確專業配置指南
+  // 6. 一般提問（現在買什麼、推薦、大盤）
   if (cleanQuery.includes('買') || cleanQuery.includes('推薦') || cleanQuery.includes('選') || cleanQuery.includes('大盤') || cleanQuery.includes('看')) {
-    return [
-      '【🏛️ 首席操盤手實戰佈局指引】',
-      '• 盤面診斷：當前大盤由權值股帶頭承壓整理，小型投機股波動劇烈容易多殺多。',
-      '',
-      '🎯 核心定調：【明確不建議追高投機飆股！強烈建議將資金轉進抗震高息 ETF 與防禦族群】',
-      '',
-      '📋 實戰佈局推薦：',
-      '1. 006208（富邦台積/台灣50）：市值型首選，大盤拉回均線分批定額買進勝率最高！【明確建議買進】',
-      '2. 00919（群益精選高息）／0056（元大高股息）：年化配息率 9%~10%，大盤震盪時的超級避風港！【強烈建議逢綠加碼】',
-      '3. 2412 中華電／2886 兆豐金：低 Beta 防禦標的，抗跌護盤首選。【建議逢低建倉】',
-      '',
-      '💡 資金水位建議：震盪期間保留 4 成現金、6 成防禦持股，切勿滿槓桿融資追高！'
-    ].join('\n');
+    return `大盤這幾天權值股帶頭震盪回檔，投機飆股很容易被洗破線，【明確不建議追高投機股】！
+現在想進場，【強烈建議分批買抗震高息或市值型 ETF】（像 00919、0056、006208），跌破五日線分批定額買最安全，手上記得留 4 成現金！`;
   }
 
-  return [
-    '【🏛️ 首席操盤手盤勢快評】',
-    '• 盤面診斷：目前市場多空力道拉鋸，熱門股獲利了結賣壓湧現。',
-    '',
-    '🎯 核心定調：【不建議盲目進場追價！建議持股汰弱留強】',
-    '',
-    '📋 實戰操作建議：',
-    '👉 想進場者：【暫不建議追買高檔強勢股】，建議等大盤帶量長紅收腳再分批布局。',
-    '👉 手上有者：【建議檢視持股】，若跌破 5 日線且轉弱者建議果斷減碼 1/3，嚴格控管資金風險！'
-  ].join('\n');
+  return `目前盤面多空震盪拉鋸，熱門股回檔賣壓還在消化，【不建議隨意進場追高】！
+手上有持股的建議檢視五日線，破線轉弱的先減碼 1/3 控管風險，保留現金等大盤帶量長紅收腳再順勢加碼。`;
 };
 
 /**
