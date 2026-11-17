@@ -19,6 +19,20 @@ router.get('/market/quote/:symbol', async (req, res) => {
   res.json({ success: !!quote, data: quote });
 });
 
+import { handleLineWebhookEvent } from '../services/notify/lineReply.js';
+
+router.post('/line/webhook', async (req, res) => {
+  res.status(200).send('OK');
+  const events = req.body?.events || [];
+  for (const event of events) {
+    try {
+      await handleLineWebhookEvent(event);
+    } catch (e) {
+      console.error('處理 LINE Webhook 事件失敗:', e);
+    }
+  }
+});
+
 router.get('/health', (req, res) => res.json({ status: 'OK' }));
 
 export default router;
