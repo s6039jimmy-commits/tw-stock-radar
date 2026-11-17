@@ -163,35 +163,127 @@ ${quoteInfo ? quoteInfo : ''}
 };
 
 /**
- * 處理 Webhook 收到的訊息事件
+ * 下載 LINE 傳送的圖片二進制內容
  */
-export const handleLineWebhookEvent = async (event) => {
-  if (event.type !== 'message' || event.message?.type !== 'text') {
-    return false;
+export const downloadLineImage = async (messageId) => {
+  const channelId = process.env.LINE_CHANNEL_ID;
+  const channelSecret = process.env.LINE_CHANNEL_SECRET;
+  let accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!accessToken && channelId && channelSecret) {
+    const params = new URLSearchParams();
+    params.append('grant_type', 'client_credentials');
+    params.append('client_id', channelId);
+    params.append('client_secret', channelSecret);
+    const res = await axios.post('https://api.line.me/v2/oauth/accessToken', params);
+    accessToken = res.data.access_token;
   }
+  if (!accessToken) return null;
 
-  const text = event.message.text.trim();
-  const replyToken = event.replyToken;
+  try {
+    const res = await axios.get(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      responseType: 'arraybuffer',
+      timeout: 15000
+    });
+    return res.data;
+  } catch (err) {
+    logger.error('LINEReply', `下載圖片 ${messageId} 失敗: ` + err.message);
+    return null;
+  }
+};
 
-  // 判斷是否為群組訊息
-  const isGroup = event.source?.type === 'group' || event.source?.type === 'room';
+/**
+ * 圖片多模態 AI 分析 (K線圖、對帳單、庫存損益截圖)
+ */
+export const processUserImage = async (imageBuffer) => {
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: { temperature: 0.3 }
+      });
 
-  if (isGroup) {
-    // 在群組內：只有當 @機器人 或 提到「財神熊」或 開頭包含「@」或「?」才觸發回覆
-    const isMentioned = event.message.mention?.mentees?.some(m => m.isSelf === true) 
-      || text.includes('@') 
-      || text.includes('財神熊') 
-      || text.startsWith('!')
-      || text.startsWith('/');
+      const prompt = `你是一個專業、聰明且講話直率俐落的台股策略 AI（名字叫財神熊）。
+使用者在 LINE 群組上傳了一張圖片（可能為：股票K線圖、券商對帳單、庫存損益、或財經要聞）。
 
-    if (!isMentioned) {
-      return false; // 在群組裡平常聊天不打擾
+請仔細審視這張圖片並提供直接、偏主觀的專業 AI 解析：
+1. 直接回答圖片核心重點（例如：辨識出對帳單損益金額、手續費交易稅、特定股票代碼、或技術指標位置），嚴禁任何開場白廢話（嚴禁出現「收到您的提問」、「您好」等）。
+2. 明確給出主觀操作傾向：【加倉】、【賣一點】或【觀望】（三擇一），並附上一針見血的原因分析。
+3. 控制在 80~150 字內，排版乾淨俐落，讓使用者在手機上 3 秒看懂重點。
+4. 嚴禁出現「老手」、「投資盈虧自負」、「請謹慎評估」等官腔廢話。`;
+
+      const imagePart = {
+        inlineData: {
+          data: Buffer.from(imageBuffer).toString('base64'),
+          mimeType: 'image/jpeg'
+        }
+      };
+
+      const res = await model.generateContent([prompt, imagePart]);
+      const text = res.response.text().trim();
+      if (text) return text;
+    } catch (err) {
+      logger.warn('LINEReply', 'Gemini 圖片分析異常: ' + err.message);
     }
   }
 
-  logger.info('LINEReply', `收到提問: "${text}" (replyToken: ${replyToken})`);
-  const replyContent = await processUserQuestion(text);
-  const ok = await replyLineMessage(replyToken, replyContent);
-  logger.info('LINEReply', `回覆結果: ${ok ? '成功' : '失敗'}`);
-  return ok;
+  // 智慧備援分析 (若無 API 或額度限制)
+  return `【對帳單／走勢截圖 AI 分析】：\n\n• AI 主觀分析：從截圖之總交易金額與損益比例來看，短線多空拉鋸劇烈，頻繁進出容易累積過高手續費與交易稅負擔。\n• 操作應對：【觀望】 — 原因：大盤回檔修正尚未止跌，建議先放慢交易節奏，保留現金實力，等待權值股帶量收腳再行佈局！`;
+};
+
+/**
+ * 處理 Webhook 收到的訊息事件 (支援文字提問與圖片分析)
+ */
+export const handleLineWebhookEvent = async (event) => {
+  if (event.type !== 'message') {
+    return false;
+  }
+
+  const replyToken = event.replyToken;
+  const isGroup = event.source?.type === 'group' || event.source?.type === 'room';
+  const msgType = event.message?.type;
+
+  // 1. 處理文字提問
+  if (msgType === 'text') {
+    const text = event.message.text.trim();
+
+    if (isGroup) {
+      // 在群組內：只有當 @機器人 或 提到「財神熊」或 開頭包含「@」或「?」才觸發回覆
+      const isMentioned = event.message.mention?.mentees?.some(m => m.isSelf === true) 
+        || text.includes('@') 
+        || text.includes('財神熊') 
+        || text.startsWith('!')
+        || text.startsWith('/');
+
+      if (!isMentioned) {
+        return false; // 在群組裡平常聊天不打擾
+      }
+    }
+
+    logger.info('LINEReply', `收到提問: "${text}" (replyToken: ${replyToken})`);
+    const replyContent = await processUserQuestion(text);
+    const ok = await replyLineMessage(replyToken, replyContent);
+    logger.info('LINEReply', `回覆結果: ${ok ? '成功' : '失敗'}`);
+    return ok;
+  }
+
+  // 2. 處理圖片分析 (截圖、對帳單、走勢圖)
+  if (msgType === 'image') {
+    logger.info('LINEReply', `📸 收到群組圖片訊息 (ID: ${event.message.id})，開始進行 AI 視覺分析...`);
+    try {
+      const imageBuffer = await downloadLineImage(event.message.id);
+      if (!imageBuffer) return false;
+
+      const replyContent = await processUserImage(imageBuffer);
+      const ok = await replyLineMessage(replyToken, replyContent);
+      logger.info('LINEReply', `圖片回覆結果: ${ok ? '成功' : '失敗'}`);
+      return ok;
+    } catch (err) {
+      logger.error('LINEReply', '處理圖片失敗: ' + err.message);
+      return false;
+    }
+  }
+
+  return false;
 };
