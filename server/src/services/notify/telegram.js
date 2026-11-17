@@ -2,6 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } from '../../config/index.js';
 import { logger } from '../../utils/logger.js';
 import { addPosition, getSetting, setSetting } from '../../db/database.js';
+import { sendLineMessage } from './line.js';
 
 let botInstance = null;
 let currentToken = null;
@@ -66,11 +67,20 @@ export const initTelegramBot = () => {
 };
 
 export const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
+  // 同步支援 LINE 推播 (若環境變數已設定 LINE Token 與 Group/User ID)
+  let lineSuccess = false;
+  try {
+    lineSuccess = await sendLineMessage(html);
+  } catch (err) {
+    logger.error('LINE', 'LINE 推播異常: ' + err.message);
+  }
+
   const bot = getBot();
   const rawChatId = overrideChatId || process.env.TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID;
   
   if (!bot || !rawChatId) {
-    logger.warn('Telegram', '未設定 Bot Token 或 Chat ID，無法發送訊息');
+    if (lineSuccess) return true;
+    logger.warn('Telegram', '未設定 Bot Token 或 Chat ID，無法發送 Telegram 訊息');
     return false;
   }
   
