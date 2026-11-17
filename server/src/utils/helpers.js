@@ -99,6 +99,16 @@ export const isUsTradingDay = (date = new Date()) => {
 };
 
 /**
+ * 檢查目前是否在美股盤中交易時段 (紐約時間 09:30 - 16:00)
+ */
+export const isUsMarketOpen = (date = new Date()) => {
+  if (!isUsTradingDay(date)) return false;
+  const usTime = new Date(date.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const hm = usTime.getHours() * 100 + usTime.getMinutes();
+  return hm >= 930 && hm <= 1600;
+};
+
+/**
  * 取得明日台股與美股的休市預警通知（若有國定假日或節日休市）
  * 排除常規週六日，專門提示「明日國定假日休市」與「美股節日休市」
  */

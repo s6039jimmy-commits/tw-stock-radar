@@ -8,7 +8,8 @@
     "test:postmarket": "node -e \"import('./src/services/radar/postMarketScanner.js').then(m => m.runPostMarketScan())\"",
     "test:midday": "node -e \"import('./src/services/radar/middayScanner.js').then(m => m.runMiddayScan(true))\"",
     "test:premarket": "node -e \"import('./src/services/radar/preMarketScanner.js').then(m => m.runPreMarketScan(true))\"",
-    "test:crash": "node -e \"import('./src/services/monitor/crashMonitor.js').then(m => m.testCrashAlert())\""
+    "test:crash": "node -e \"import('./src/services/monitor/crashMonitor.js').then(m => m.testCrashAlert())\"",
+    "test:night": "node -r dotenv/config -e \"import('./src/services/radar/nightScanner.js').then(m => m.scanNightSession(true))\""
   },
   "dependencies": {
     "@fugle/marketdata": "^1.4.2",

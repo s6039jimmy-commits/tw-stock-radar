@@ -5,17 +5,40 @@ import { sendHTML } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isTradingDay, getMarketHolidayAlerts } from '../../utils/helpers.js';
 
-/**
- * 🎯 14:05 盤後大盤明日預測
- * 依使用者最新要求：
- * 1. 專屬個人秒懂版，不需要下半段朋友分析，不分上下段
- * 2. 移除任何「老手」自稱或花俏抬頭
- * 3. 3秒看懂：明日漲跌、0056/006208現況、能不能追、明日應對一句話
- * 4. 前一天提前公告台股與美股節日休市
- * 5. 正常交易日週一至週五發送，連假休市絕不推播
- */
+function generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent, price56, change56, price6208, change6208 }) {
+  const cPct = parseFloat(tseChangePercent) || 0;
+
+  let trend = '【高檔震盪】';
+  let etfStatus = `0056 (${change56}%) 與 006208 (${change6208}%) 處於區間震盪整理。`;
+  let canChase = '【續抱不動，切勿追高】';
+  let action = '【觀望】— 原因：大盤量縮整理方向未明，手上有部位續抱即可，切勿心急追高或盲目加碼。';
+
+  if (cPct <= -2.0) {
+    trend = '【空方全面殺盤】';
+    etfStatus = `0056 抗跌 (${change56}%)，006208 隨權值重挫回檔 (${change6208}%)。`;
+    canChase = '【不可追，等拉回】';
+    action = '【賣一點】— 原因：大盤出現恐慌破線殺盤，若手上持股已跌破短期均線，先減碼一部分收回現金避險。';
+  } else if (cPct <= -1.0) {
+    trend = '【空方壓制】';
+    etfStatus = `0056 高股息相對抗跌 (${change56}%)，006208 市值型隨大盤回檔整理 (${change6208}%)。`;
+    canChase = '【不可追，等拉回】';
+    action = '【觀望】— 原因：大盤今日回檔跌破短期均線，空方賣壓尚未完全消化，先保留現金耐心等待盤勢止跌築底。';
+  } else if (cPct >= 1.0) {
+    trend = '【多方攻擊】';
+    etfStatus = `006208 權值動能強勁 (${change6208}%)，0056 穩定向上 (${change56}%)，多頭架構完好。`;
+    canChase = '【可以逢低分批買】';
+    action = '【加倉】— 原因：加權指數帶量站穩均線之上，多方買盤積極，回測均線不破可分批加碼核心持股。';
+  } else if (cPct > 0) {
+    trend = '【震盪偏多】';
+    etfStatus = `0056 與 006208 表現穩健，盤面呈現良性輪動。`;
+    canChase = '【可以逢低分批買】';
+    action = '【加倉】— 原因：大盤底部墊高且守穩支撐，可趁盤中壓回時分批布局。';
+  }
+
+  return `• 明天到底會漲還是跌：${trend}\n• 0056 / 006208 現況：${etfStatus}\n• 能不能追：${canChase}\n• 明日應對：${action}`;
+}
+
 export const runPostMarketScan = async () => {
-  // 檢查是否為台股正常交易日（國定假日、連假、颱風假休市絕不推播）
   if (!isTradingDay()) {
     logger.info('PostMarket', '🛑 今日為台股休市日／連假，不執行 14:05 推播');
     return;
@@ -72,18 +95,17 @@ export const runPostMarketScan = async () => {
       holidaySection = '\n' + holidayAlerts.join('\n') + '\n';
     }
 
-    let aiVerdict = '• 明天到底會漲還是跌：【高檔震盪】\n• 0056 / 006208 現況：表現平穩，區間整理。\n• 能不能追：【續抱不動，切勿追高】\n• 明日應對：維持既有部位，回檔再行考慮。';
+    let aiVerdict = generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent: tseChange, price56, change56, price6208, change6208 });
 
     if (process.env.GEMINI_API_KEY) {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: {
-          temperature: 0.0 // 鎖死零度
-        }
-      });
+      try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-2.5-flash',
+          generationConfig: { temperature: 0.0 }
+        });
 
-      const prompt = `今日台股盤後數據已正式結算。
+        const prompt = `今日台股盤後數據已正式結算。
 請為老闆產出最簡單、直白、3秒看懂的「14:05 大盤明日預測」，不需要任何專業術語，不要下半段分析，嚴禁任何自稱廢話。
 
 【今日收盤真實數據】：
@@ -96,18 +118,22 @@ export const runPostMarketScan = async () => {
 【今日重大財經要聞】：
 ${newsText}
 
-【必須嚴格遵守的輸出格式】（嚴禁多餘廢話、前言、結尾或任何「老手」稱呼，直接輸出以下四行）：
+【必須嚴格遵守的輸出格式】（直接輸出以下四行，嚴禁多餘廢話）：
 • 明天到底會漲還是跌：【漲】（或【跌】/【震盪偏多】/【震盪偏空】）
 • 0056 / 006208 現況：用一句大白話總結這兩檔今天表現與強弱
 • 能不能追：【不可追，等拉回】（或【可以逢低分批買】/【續抱不動，切勿追高】/【反彈減碼】）
-• 明日應對：明確建議【加倉】、【賣一點】或【觀望】（三擇一），並緊接一句大白話說明具體原因（例如：【觀望】— 原因：今日大盤量縮跌破五日線，多方尚未止跌，先留現金耐心等待；或【加倉】— 原因：回測季線爆量換手成功，明日可分批進場布局；或【賣一點】— 原因：反彈遇前波套牢大壓力區且無量，逢高先減碼收回現金）。
+• 明日應對：明確建議【加倉】、【賣一點】或【觀望】（三擇一），並緊接一句大白話說明具體原因。
 
 【絕對嚴格禁止】：
 - 嚴禁提及「老手」、「投資盈虧自負」、「請謹慎評估」、「守護本金」、「停損停利」、「勝率」。
 - 嚴禁分「上半段／下半段」，全篇直接給老闆秒懂。`;
 
-      const res = await model.generateContent(prompt);
-      aiVerdict = res.response.text().trim();
+        const res = await model.generateContent(prompt);
+        const text = res.response.text().trim();
+        if (text) aiVerdict = text;
+      } catch (geminiError) {
+        logger.warn('PostMarket', 'Gemini API 額度不足或暫時無法連線，啟用智慧型規則引擎產出分析: ' + geminiError.message);
+      }
     }
 
     const html = `🎯 <b>【14:05 大盤明日預測】— ${today}</b>

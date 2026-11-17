@@ -73,8 +73,10 @@ export const startRadarJobs = () => {
     }
   }, options);
   
-  // 夜盤掃描 (22:30, 01:30, 05:30) — 依使用者指示全面關閉：半夜不打擾，美股節日放假絕不推播
-  // cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
+  // 🌙 半夜夜盤監控：美股盤中每 15 分鐘巡檢，若 EWT 跌幅 ≥ 1% 立即通知（整晚只報一次，防擾眠不洗版）
+  cron.schedule('*/15 21,22,23,0,1,2,3,4 * * *', () => {
+    scanNightSession();
+  }, options);
   
   // ☀️ 08:40 盤前試撮與開盤預估（一天只發一次）：大白話漲跌預判、外盤 ADR 連動、原因好懂秒懂
   cron.schedule('40 8 * * 1-5', () => {
