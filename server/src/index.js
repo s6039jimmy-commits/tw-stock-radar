@@ -8,6 +8,7 @@ import { initDatabase, saveDatabase } from './db/database.js';
 import apiRoutes from './api/routes.js';
 import { startAllJobs, stopAllJobs } from './scheduler/index.js';
 import { initTelegramBot } from './services/notify/telegram.js';
+import { startWebhookBridge } from './services/notify/lineBridge.js';
 import { logger } from './utils/logger.js';
 
 const app = express();
@@ -35,6 +36,9 @@ const start = async () => {
 
     // 初始化 Telegram Bot
     initTelegramBot();
+
+    // 啟動 LINE Webhook 智能橋接器 (雙通道監聽)
+    startWebhookBridge();
 
     // 掛載 API 路由
     app.use('/api', apiRoutes);
