@@ -5,7 +5,7 @@ import { scan as scanBlueChip } from '../services/radar/blueChipScanner.js';
 import { scan as scanMomentum } from '../services/radar/momentumScanner.js';
 import { scan as scanCustom } from '../services/radar/customScanner.js';
 import { scanNightSession } from '../services/radar/nightScanner.js';
-import { generatePreMarketReport } from '../services/radar/preMarketScanner.js';
+import { runPreMarketScan } from '../services/radar/preMarketScanner.js';
 import { runPostMarketScan } from '../services/radar/postMarketScanner.js';
 import { runMiddayScan } from '../services/radar/middayScanner.js';
 import { getTradeStats } from '../db/database.js';
@@ -29,9 +29,7 @@ export const runCustomScan = async () => {
   }
 };
 
-export const runPreMarketScan = async () => {
-  await generatePreMarketReport();
-};
+export { runPreMarketScan };
 
 export const runNightScan = async () => {
   await scanNightSession();
@@ -78,8 +76,14 @@ export const startRadarJobs = () => {
   // 夜盤掃描 (22:30, 01:30, 05:30) — 依使用者指示全面關閉：半夜不打擾，美股節日放假絕不推播
   // cron.schedule('30 22,1,5 * * 1-5', runNightScan, options);
   
-  // 盤前報告 (08:30) — 依使用者「改成 14:05 推薦就好」指示，已停用
-  // cron.schedule('30 8 * * 1-5', () => { runPreMarketScan(); }, options);
+  // ☀️ 08:40 盤前試撮與開盤預估（一天只發一次）：大白話漲跌預判、外盤 ADR 連動、原因好懂秒懂
+  cron.schedule('40 8 * * 1-5', () => {
+    if (isTradingDay()) {
+      runPreMarketScan();
+    } else {
+      logger.info('Scheduler', '今日為台股休市日／連假，跳過 08:40 盤前快報');
+    }
+  }, options);
   
   // 依使用者指示：取消 14:00 統計推播（不要勝率、不要風控廢話）
   // cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);

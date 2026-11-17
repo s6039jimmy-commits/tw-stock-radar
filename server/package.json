@@ -7,6 +7,7 @@
     "backtest": "node runBacktest.js",
     "test:postmarket": "node -e \"import('./src/services/radar/postMarketScanner.js').then(m => m.runPostMarketScan())\"",
     "test:midday": "node -e \"import('./src/services/radar/middayScanner.js').then(m => m.runMiddayScan(true))\"",
+    "test:premarket": "node -e \"import('./src/services/radar/preMarketScanner.js').then(m => m.runPreMarketScan(true))\"",
     "test:crash": "node -e \"import('./src/services/monitor/crashMonitor.js').then(m => m.testCrashAlert())\""
   },
   "dependencies": {
