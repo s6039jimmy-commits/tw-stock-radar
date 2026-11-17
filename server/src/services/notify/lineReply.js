@@ -68,20 +68,113 @@ export const replyLineMessage = async (replyToken, text) => {
  */
 import { resolveStock } from '../../utils/stockResolver.js';
 
+// 群組與個人對話上下文記憶池 (滑動視窗保留最近 8 則訊息 / 4 回合，25 分鐘有效)
+const chatHistoryMap = new Map();
+const MAX_HISTORY = 8;
+const HISTORY_EXPIRE_MS = 25 * 60 * 1000;
+
+export const getConversationHistory = (sessionId) => {
+  if (!sessionId) return [];
+  const history = chatHistoryMap.get(sessionId) || [];
+  const now = Date.now();
+  const activeHistory = history.filter(item => now - item.timestamp < HISTORY_EXPIRE_MS);
+  chatHistoryMap.set(sessionId, activeHistory);
+  return activeHistory;
+};
+
+export const saveConversationTurn = (sessionId, userText, replyText, senderName = '群組朋友', stockSymbol = null, stockName = null) => {
+  if (!sessionId) return;
+  const history = getConversationHistory(sessionId);
+  history.push({ role: 'user', name: senderName, text: userText, timestamp: Date.now(), stockSymbol, stockName });
+  history.push({ role: 'assistant', name: '財神熊', text: replyText, timestamp: Date.now(), stockSymbol, stockName });
+  if (history.length > MAX_HISTORY) {
+    history.splice(0, history.length - MAX_HISTORY);
+  }
+  chatHistoryMap.set(sessionId, history);
+};
+
+const userProfileCache = new Map();
+
+async function getUserDisplayName(groupId, userId) {
+  if (!userId) return '群組朋友';
+  if (userProfileCache.has(userId)) return userProfileCache.get(userId);
+
+  try {
+    const channelId = process.env.LINE_CHANNEL_ID || '2012651187';
+    const channelSecret = process.env.LINE_CHANNEL_SECRET || 'a6841f1c4a39a3d52fb48b55a364ac16';
+    let accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    if (!accessToken && channelId && channelSecret) {
+      const params = new URLSearchParams();
+      params.append('grant_type', 'client_credentials');
+      params.append('client_id', channelId);
+      params.append('client_secret', channelSecret);
+      const res = await axios.post('https://api.line.me/v2/oauth/accessToken', params);
+      accessToken = res.data?.access_token;
+    }
+
+    if (accessToken) {
+      const url = groupId
+        ? `https://api.line.me/v2/bot/group/${groupId}/member/${userId}`
+        : `https://api.line.me/v2/bot/profile/${userId}`;
+      const res = await axios.get(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 2500
+      });
+      if (res.data?.displayName) {
+        userProfileCache.set(userId, res.data.displayName);
+        return res.data.displayName;
+      }
+    }
+  } catch (e) {
+    // 忽略異常
+  }
+  return '群組朋友';
+}
+
 /**
- * 分析群組使用者對機器人的提問，並產出高情商、大白話的解答
+ * 分析群組使用者對機器人的提問，並產出高情商、大白話的解答 (支援連續對話話題記憶)
  */
-export const processUserQuestion = async (userText) => {
-  // 1. 去除 @提及 標籤，取得乾淨的使用者提問
-  const cleanQuery = userText.replace(/@\S+/g, '').trim();
+export const processUserQuestion = async (userText, sessionId = 'default', senderName = '群組朋友') => {
+  // 1. 去除 @提及 標籤（精確移除 @財神熊、@bot、@我，支援文字黏在後面，如 @財神熊房子貸款也要買）
+  let cleanQuery = userText
+    .replace(/@\s*財神熊/gi, '')
+    .replace(/@\s*我/gi, '')
+    .trim();
+  if (cleanQuery.startsWith('@')) {
+    cleanQuery = cleanQuery.replace(/^@\S+\s*/, '').trim();
+  }
   if (!cleanQuery) {
     return '老闆您好！有什麼股市問題想問我嗎？例如：\n• @我 2330 怎麼看？\n• @我 大盤今天還能追嗎？\n• @我 006208 能加碼嗎？';
   }
 
-  // 2. 自動識別全台股股票名稱或代碼 (沛爾生醫 6949, 台積電 2330, 等 2000+ 檔)
+  // 2. 檢索上下文話題記憶（支援延續討論，如「房子貸款也要買」、「那停損看哪」、「它現在呢」）
+  const recentHistory = getConversationHistory(sessionId);
+  let historyContext = '';
+  let lastMentionedStock = null;
+
+  if (recentHistory.length > 0) {
+    const historyLines = recentHistory.map(item => `- ${item.name}: ${item.text}`).join('\n');
+    historyContext = `\n【最近群組對話話題脈絡】（非常關鍵：若使用者的問題包含代名詞如「它、這檔」、或接續上一話題如「房子貸款也要買、那停損設哪、什麼時候能進」，代表接續剛才的對話！）：\n${historyLines}\n`;
+
+    // 找出上一話題中討論的股票（若當前提問沒指定股票，自動接續該標的行情）
+    for (let i = recentHistory.length - 1; i >= 0; i--) {
+      if (recentHistory[i].stockSymbol) {
+        lastMentionedStock = { symbol: recentHistory[i].stockSymbol, name: recentHistory[i].stockName };
+        break;
+      }
+    }
+  }
+
+  // 3. 自動識別全台股股票名稱或代碼 (沛爾生醫 6949, 台積電 2330, 等 2000+ 檔)
   const resolved = await resolveStock(cleanQuery);
   let detectedSymbol = resolved?.symbol || null;
   let stockName = resolved?.name || '';
+
+  // 若當前問題未指定股票，但上一話題有討論的股票，自動接續該股票！
+  if (!detectedSymbol && lastMentionedStock) {
+    detectedSymbol = lastMentionedStock.symbol;
+    stockName = lastMentionedStock.name;
+  }
 
   let quoteInfo = '';
   let currentQuote = null;
@@ -101,7 +194,7 @@ export const processUserQuestion = async (userText) => {
     }
   }
 
-  // 3. 取得大盤加權指數即時數據，確保 AI 具備真實市場認知 (大盤現處於 4 萬點時代，絕不產生舊年代點位幻覺)
+  // 4. 取得大盤加權指數即時數據，確保 AI 具備真實市場認知 (大盤現處於 4 萬點時代，絕不產生舊年代點位幻覺)
   let marketInfo = '';
   try {
     const marketQuote = await getQuote('IX0001');
@@ -117,7 +210,7 @@ export const processUserQuestion = async (userText) => {
     // 忽略大盤獲取失敗
   }
 
-  // 4. AI 分析生成回答 (無死板攔截，讓 AI 自由發揮，但堅守操盤手風格與明確買賣定調)
+  // 5. AI 分析生成回答 (無死板攔截，讓 AI 自由發揮，但堅守操盤手風格與明確買賣定調)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -128,19 +221,24 @@ export const processUserQuestion = async (userText) => {
 
       const prompt = `你是一位在 LINE 群組裡跟好友交流的高勝率頂尖台股操盤高手（財神熊）。
 群組朋友提問：「${cleanQuery}」
+${historyContext}
 ${marketInfo}
 ${quoteInfo ? quoteInfo : ''}
 
 【回覆核心指引】：
-1. 完全比照你在 Gemini 官方網頁上的真人自然聊天狀態發揮！字數長短隨意、自然表達，講得有血有肉有觀點，絕不要被固定字數或句數框架限制。
-2. 保持頂尖操盤手的犀利直覺與口吻，嚴禁任何客服廢話開場白（不要「您好」、「很高興為您解答」），也絕不要死板的報告條列模板。
-3. 絕不講「大盤觀望」這種沒有意義的廢話！必須給出你直率、主觀的操作定調：到底是【建議加碼買進】還是【不建議碰/建議賣出調節】！
-4. 務必基於【當前台股大盤真實行情】回答（清楚認知大盤目前在 4 萬點高檔震盪整理，歷史高點曾逼近 5 萬點，絕不可產生舊年代點位認知幻覺）。
-5. 若問個股，點出關鍵支撐或停損價位；若問極端操作（歐印、借錢等），直接用毒舌中肯的大白話點評。`;
+1. 具備頂級對話靈性：若使用者是在接續上一話題（例如「房子貸款也要買」、「那什麼時候買」、「停損看哪」），請務必順著上一話題的脈絡回答，展現出高度默契！
+2. 完全比照你在 Gemini 官方網頁上的真人自然聊天狀態發揮！字數長短隨意、自然表達，講得有血有肉有觀點，絕不要被固定字數或句數框架限制。
+3. 保持頂尖操盤手的犀利直覺與口吻，嚴禁任何客服廢話開場白（不要「您好」、「很高興為您解答」），也絕不要死板的報告條列模板。
+4. 絕不講「大盤觀望」這種沒有意義的廢話！必須給出你直率、主觀的操作定調：到底【建議買進/加碼】還是【不建議碰/建議賣出調節】！
+5. 務必基於【當前台股大盤真實行情】回答（清楚認知大盤目前在 4 萬點高檔震盪整理，歷史高點曾逼近 5 萬點，絕不可產生舊年代點位認知幻覺）。
+6. 若問個股，點出關鍵支撐或停損價位；若問極端操作（歐印、貸款買、借錢等），直接用毒舌中肯的大白話痛快打醒！`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
-      if (text) return text;
+      if (text) {
+        saveConversationTurn(sessionId, cleanQuery, text, senderName, detectedSymbol, stockName);
+        return text;
+      }
     } catch (err) {
       logger.warn('LINEReply', 'Gemini API 異常，啟用真人自然口吻量化引擎: ' + err.message);
     }
@@ -285,8 +383,20 @@ export const handleLineWebhookEvent = async (event) => {
       }
     }
 
-    logger.info('LINEReply', `收到提問: "${text}" (replyToken: ${replyToken})`);
-    const replyContent = await processUserQuestion(text);
+    const sessionId = event.source?.groupId || event.source?.roomId || event.source?.userId || 'default_session';
+    const groupId = event.source?.groupId;
+    const userId = event.source?.userId;
+    let senderName = '群組朋友';
+    if (userId) {
+      try {
+        senderName = await getUserDisplayName(groupId, userId);
+      } catch (e) {
+        // 忽略
+      }
+    }
+
+    logger.info('LINEReply', `收到 [${senderName}] 提問: "${text}" (replyToken: ${replyToken})`);
+    const replyContent = await processUserQuestion(text, sessionId, senderName);
     const ok = await replyLineMessage(replyToken, replyContent);
     logger.info('LINEReply', `回覆結果: ${ok ? '成功' : '失敗'}`);
     return ok;
