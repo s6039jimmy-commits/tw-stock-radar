@@ -104,63 +104,61 @@ export const processUserQuestion = async (userText) => {
     }
   }
 
-  // 3. AI 分析生成回答 (幽默、主觀、逗趣、不官方)
+  // 3. AI 分析生成回答 (自然、偏主觀、智慧俐落、像一般問 AI 的口吻)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: 'gemini-2.5-flash',
-        generationConfig: { temperature: 0.7 }
+        generationConfig: { temperature: 0.3 }
       });
 
-      const prompt = `你是一個在 LINE 群組裡的股市靈魂人物「財神熊」🐻。你的個性極度有主見、講話超逗趣、接地氣、幽默好笑又敢愛敢恨，就像群組裡最會嘴砲又看盤神準的資深損友！
-群組朋友 @你 提問：「${cleanQuery}」
+      const prompt = `你是一個專業、聰明且講話直率俐落的台股策略 AI（名字叫財神熊）。
+現在使用者在 LINE 群組裡 @你 提問：「${cleanQuery}」
 ${quoteInfo ? quoteInfo : ''}
 
-【你的回覆風格規則】：
-1. 嚴禁任何官方、客套、客服或機器人腔調！不要講廢話。
-2. 語氣要非常「主觀、幽默、逗趣、嘴砲接地氣」，多用有趣的鄉民股市梗（如：接飛刀、當韭菜、主力數鈔票、喝下午茶、衝天砲、吃雞排）。
-3. 結論一定要超級主觀明確，直接給：【加倉】、【賣一點】或【觀望】（三擇一），並用一句逗趣生動的理由說明。
-4. 字數控制在 80~140 字左右，好笑、好懂、一眼秒笑秒懂。
-5. 嚴禁出現「老手」、「投資盈虧自負」、「請謹慎評估」等任何官方免責廢話。`;
+【回覆口吻要求】：
+1. 像一般跟聰明 AI 對話的口吻，自然、清楚、有邏輯，不要有機器人或客服官方腔。
+2. 保持「偏主觀」的明確判斷，不要含糊其詞或模稜兩可，直接給出你作為 AI 的個人看法。
+3. 如果是問個股或大盤，直接給出明確的操作傾向：【加倉】、【賣一點】或【觀望】（三擇一），並附上一針見血的原因分析。
+4. 控制在 80~140 字內，排版乾淨俐落，讓使用者在手機上 3 秒看懂重點。
+5. 嚴禁出現「老手」、「投資盈虧自負」、「請謹慎評估」等官腔廢話。`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
       if (text) return text;
     } catch (err) {
-      logger.warn('LINEReply', 'Gemini API 異常，啟用逗趣主觀智慧備援規則: ' + err.message);
+      logger.warn('LINEReply', 'Gemini API 異常，啟用偏主觀智慧 AI 備援規則: ' + err.message);
     }
   }
 
-  // 4. 幽默逗趣主觀備援規則 (若 Gemini 402 或無 API Key)
+  // 4. 智慧備援規則 (偏主觀、俐落、像一般問 AI 的口吻)
   if (detectedSymbol && quoteInfo) {
-    // 根據漲跌動態產出極具個性與幽默感的吐槽
-    let funnyVerdict = '';
-    let action = '【觀望】';
-    let funnyReason = '';
-
-    // 解析漲跌
     const isBigDrop = quoteInfo.includes('(-') && (quoteInfo.includes('-1.') || quoteInfo.includes('-2.') || quoteInfo.includes('-3.') || quoteInfo.includes('-4.'));
     const isBigUp = quoteInfo.includes('(+' ) && (quoteInfo.includes('+1.') || quoteInfo.includes('+2.') || quoteInfo.includes('+3.') || quoteInfo.includes('+4.'));
 
+    let view = '';
+    let action = '【觀望】';
+    let reason = '';
+
     if (isBigDrop) {
-      funnyVerdict = '哎唷喂呀！今天這根殺得鼻青臉腫，主力直接把散戶當韭菜在割！現在衝進去不是抄底，根本是用臉去擋砂石車。';
+      view = '盤面受外盤與賣壓壓制，短期均線已跌破，空方主導力道較強，技術面尚未出現明確的止跌築底訊號。';
       action = '【觀望】';
-      funnyReason = '手綁起來先去喝杯珍奶冷靜一下，別急著當烈士接飛刀，看主力下午要怎麼收場！';
+      reason = '目前空方賣壓尚未完全釋放，暫不建議急著進場猜底接刀，先觀察是否有主力買盤收腳防守。';
     } else if (isBigUp) {
-      funnyVerdict = '哇靠這檔今天吃大力丸逆！多頭整個殺紅了眼狂噴，主力開著火箭在衝鋒，爽度破表！';
+      view = '多方買盤積極進駐，成交量能溫和放大，短期均線維持多頭排列，攻擊動能依然維持強勢。';
       action = '【加倉】';
-      funnyReason = '想跟著主力喝點肉湯可以，但別閉著眼睛硬追天花板，等盤中壓回支撐再分批上車！';
+      reason = '多頭架構完好，若手中已有部位，可待盤中回測短期均線有守時，逢回分批適量加碼。';
     } else {
-      funnyVerdict = '盤成這樣本熊都要睡著了，多空雙方都在打瞌睡，主力在旁邊剔牙剔得很開心，沒啥搞頭。';
+      view = '目前處於均線區間窄幅震盪整理，多空力道相對均衡，量能亦呈現收縮，屬於回檔沉澱籌碼的階段。';
       action = '【觀望】';
-      funnyReason = '無聊盤整不用瞎忙送手續費，持股抱好不要亂動，把時間拿去吃頓好的卡實在！';
+      reason = '突破方向尚未明朗前不宜頻繁進出，既有持股續抱即可，靜待帶量突破區間再做決定。';
     }
 
-    return `🐻 財神熊掐指一算：\n${quoteInfo}\n\n${funnyVerdict}\n\n• 本熊主觀建議：${action} — 原因：${funnyReason}`;
+    return `🤖 收到您的提問：\n${quoteInfo}\n\n• AI 主觀分析：${view}\n• 操作應對：${action} — 原因：${reason}`;
   }
 
-  return `🐻 財神熊有話直說：\n問「${cleanQuery}」是吧？本熊主觀認為現在大盤跟坐雲霄飛車一樣刺激，主力都在搞心態！\n\n• 本熊操作建議：【觀望】— 原因：看不懂就不要硬送錢給主力花，抱緊現金就是王道，先翹腳在旁邊看主力耍猴戲！`;
+  return `🤖 關於「${cleanQuery}」：\n\n• AI 主觀分析：目前大盤處於震盪輪動格局，各族群強弱分化明顯，追價意願相對保守。\n• 操作應對：【觀望】 — 原因：指數在關鍵區間拉鋸，建議保留適度現金部位，觀察量能能否回溫再順勢佈局。`;
 };
 
 /**
