@@ -4,6 +4,7 @@ import { isMarketOpen } from '../utils/helpers.js';
 import { getActivePositions, getSetting } from '../db/database.js';
 import { evaluatePosition, evaluatePositionNewsOnly } from '../services/monitor/exitEngine.js';
 import { connect, disconnect } from '../services/fugle/streaming.js';
+import { checkIntradayAlerts } from '../services/monitor/intradayAlertScanner.js';
 import { logger } from '../utils/logger.js';
 
 export const runPriceCheck = async () => {
@@ -33,6 +34,14 @@ export const startMonitorJobs = () => {
   cron.schedule(`*/${MONITOR_SCAN_INTERVAL_MIN} * * * 1-5`, () => {
     if (isMarketOpen()) runPriceCheck();
   });
+
+  // ⚡ 盤中重大波動巡檢 (加權指數大跌/大漲 1000 點、006208 與 0056 漲跌幅破 1%)
+  // 台北時間 09:00 ~ 13:30 開盤時段每 2 分鐘自動巡檢
+  cron.schedule('*/2 9-13 * * 1-5', () => {
+    if (isMarketOpen()) {
+      checkIntradayAlerts();
+    }
+  }, { timezone: 'Asia/Taipei' });
 
 
 
