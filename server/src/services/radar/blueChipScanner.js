@@ -104,10 +104,10 @@ export const scan = async () => {
           // 寫入資料庫
           await addRadarSignal(signal);
           
-          // 推播通知 (4顆星以上才傳 Telegram)
-          if (result.confidence_stars >= 4) {
-            await sendEntrySignal(signal);
-          }
+          // 推播通知 (依使用者最新要求：全天只保留 08:40、12:00、14:05 與半夜 EWT/QQQM，其餘盤中不推播)
+          // if (result.confidence_stars >= 4) {
+          //   await sendEntrySignal(signal);
+          // }
           
           logger.info('BlueChip Scanner', `✨ 發現信號: ${symbol} ${stockName} - ${result.confidence_stars}星`);
         }
