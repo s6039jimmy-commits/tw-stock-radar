@@ -66,6 +66,11 @@ export const replyLineMessage = async (replyToken, text) => {
 /**
  * 分析群組使用者對機器人的提問，並產出高情商、大白話的解答
  */
+import { resolveStock } from '../../utils/stockResolver.js';
+
+/**
+ * 分析群組使用者對機器人的提問，並產出高情商、大白話的解答
+ */
 export const processUserQuestion = async (userText) => {
   // 1. 去除 @提及 標籤，取得乾淨的使用者提問
   const cleanQuery = userText.replace(/@\S+/g, '').trim();
@@ -73,30 +78,22 @@ export const processUserQuestion = async (userText) => {
     return '老闆您好！有什麼股市問題想問我嗎？例如：\n• @我 2330 怎麼看？\n• @我 大盤今天還能追嗎？\n• @我 006208 能加碼嗎？';
   }
 
-  // 2. 檢查是否有提及個股代碼或股票名稱
-  let detectedSymbol = null;
-  const symbolMatch = cleanQuery.match(/\b\d{4,6}\b/);
-  if (symbolMatch) {
-    detectedSymbol = symbolMatch[0];
-  } else {
-    for (const [name, sym] of Object.entries(STOCK_NAME_MAP)) {
-      if (cleanQuery.includes(name)) {
-        detectedSymbol = sym;
-        break;
-      }
-    }
-  }
+  // 2. 自動識別全台股股票名稱或代碼 (沛爾生醫 6949, 台積電 2330, 等 2000+ 檔)
+  const resolved = await resolveStock(cleanQuery);
+  let detectedSymbol = resolved?.symbol || null;
+  let stockName = resolved?.name || '';
 
   let quoteInfo = '';
+  let currentQuote = null;
   if (detectedSymbol) {
     try {
-      const q = await getQuote(detectedSymbol);
-      if (q) {
-        const price = q.closePrice || q.lastPrice || 0;
-        const change = parseFloat(q.change || 0);
-        const changePct = parseFloat(q.changePercent || 0);
+      currentQuote = await getQuote(detectedSymbol);
+      if (currentQuote) {
+        const price = currentQuote.closePrice || currentQuote.lastPrice || 0;
+        const change = parseFloat(currentQuote.change || 0);
+        const changePct = parseFloat(currentQuote.changePercent || 0);
         const sign = change >= 0 ? '+' : '';
-        const name = q.name || detectedSymbol;
+        const name = stockName || currentQuote.name || detectedSymbol;
         quoteInfo = `\n【${detectedSymbol} ${name} 即時行情】：成交價 NT$ ${price} (${sign}${change} / ${sign}${changePct}%)`;
       }
     } catch (e) {
@@ -133,30 +130,42 @@ ${quoteInfo ? quoteInfo : ''}
     }
   }
 
-  // 4. 智慧備援規則 (直接回答，偏主觀、俐落)
-  if (detectedSymbol && quoteInfo) {
-    const isBigDrop = quoteInfo.includes('(-') && (quoteInfo.includes('-1.') || quoteInfo.includes('-2.') || quoteInfo.includes('-3.') || quoteInfo.includes('-4.'));
-    const isBigUp = quoteInfo.includes('(+' ) && (quoteInfo.includes('+1.') || quoteInfo.includes('+2.') || quoteInfo.includes('+3.') || quoteInfo.includes('+4.'));
+  // 4. 智慧備援規則 (直接回答，根據真實行情精準給出【加倉】、【賣一點】或【觀望】)
+  if (detectedSymbol && quoteInfo && currentQuote) {
+    const changePctNum = parseFloat(currentQuote.changePercent || 0);
 
     let view = '';
     let action = '【觀望】';
     let reason = '';
 
-    if (isBigDrop) {
-      view = '盤面受外盤與賣壓壓制，短期均線已跌破，空方主導力道較強，技術面尚未出現明確的止跌築底訊號。';
+    if (changePctNum <= -4.0) {
+      view = `今日股價遭遇空方重挫 (${changePctNum.toFixed(2)}%)，短線跌幅劇烈摜破重要短期均線，上方獲利了結與停損賣壓沉重。`;
+      action = '【賣一點】';
+      reason = '短線破線轉弱且賣壓未歇，持股若有浮虧或跌破五日線，建議先適度減碼 1/3 收回部分現金避險，切勿盲目凹單或加碼！';
+    } else if (changePctNum <= -1.5) {
+      view = `今日回檔修正 (${changePctNum.toFixed(2)}%)，技術面回測支撐，多空短線仍在均線附近拉鋸防守。`;
       action = '【觀望】';
-      reason = '目前空方賣壓尚未完全釋放，暫不建議急著進場猜底接刀，先觀察是否有主力買盤收腳防守。';
-    } else if (isBigUp) {
-      view = '多方買盤積極進駐，成交量能溫和放大，短期均線維持多頭排列，攻擊動能依然維持強勢。';
+      reason = '目前空方賣壓尚未完全釋放，暫不建議急著進場猜底接刀，先觀察收盤前是否有買盤收腳。';
+    } else if (changePctNum >= 4.0) {
+      view = `今日買盤強勢噴出 (${changePctNum >= 0 ? '+' : ''}${changePctNum.toFixed(2)}%)，帶量突破短期均線，多頭攻擊動能充沛，氣勢強勁！`;
       action = '【加倉】';
-      reason = '多頭架構完好，若手中已有部位，可待盤中回測短期均線有守時，逢回分批適量加碼。';
+      reason = '多頭攻擊架構完好，已有持股續抱享受獲利，欲新進場者可待盤中壓回均線有守時分批少量布局。';
+    } else if (changePctNum >= 1.0) {
+      view = `今日走勢逆勢抗跌盤堅 (${changePctNum >= 0 ? '+' : ''}${changePctNum.toFixed(2)}%)，守穩在均線之上，形態偏多，展現防禦韌性。`;
+      action = '【加倉】';
+      reason = '底部逐步墊高，具備相對抗跌防禦力，可於盤中拉回短期均線時逢低分批低接。';
     } else {
-      view = '目前處於均線區間窄幅震盪整理，多空力道相對均衡，量能亦呈現收縮，屬於回檔沉澱籌碼的階段。';
+      view = `目前股價處於均線區間窄幅整理 (${changePctNum >= 0 ? '+' : ''}${changePctNum.toFixed(2)}%)，多空力道相對均衡，量能亦呈現收縮，屬於沉澱籌碼階段。`;
       action = '【觀望】';
       reason = '突破方向尚未明朗前不宜頻繁進出，既有持股續抱即可，靜待帶量突破區間再做決定。';
     }
 
     return `${quoteInfo.trim()}\n\n• AI 主觀分析：${view}\n• 操作應對：${action} — 原因：${reason}`;
+  }
+
+  // 5. 針對「現在還有什麼可以買」、「推薦什麼」的提問直接給出明確佈局指引
+  if (cleanQuery.includes('買') || cleanQuery.includes('推薦') || cleanQuery.includes('選') || cleanQuery.includes('進場')) {
+    return `• AI 主觀分析：目前大盤處於短線回檔震盪格局，權值股正在消化外盤賣壓。在這種震盪盤勢下，切勿追高弱勢投機股，資金正轉往抗跌防禦型族群。\n• 操作應對：【加倉】 — 原因：若要進場，建議避開破線弱勢股，優先分批佈局抗跌市值型 ETF（如 006208、0050）或高股息 ETF（如 0056），拉回均線分批買進勝率最高！`;
   }
 
   return `• AI 主觀分析：目前大盤處於震盪輪動格局，各族群強弱分化明顯，追價意願相對保守。\n• 操作應對：【觀望】 — 原因：指數在關鍵區間拉鋸，建議保留適度現金部位，觀察量能能否回溫再順勢佈局。`;

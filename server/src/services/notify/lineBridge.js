@@ -16,10 +16,18 @@ export const startWebhookBridge = () => {
 
   logger.info('LINEBridge', '🚀 啟動 LINE Webhook 雙向智能橋接監聽器...');
 
+  let consecutiveErrors = 0;
   setInterval(async () => {
+    // 若遭遇頻率限制則拉長等待
+    if (consecutiveErrors > 3) {
+      consecutiveErrors--;
+      return;
+    }
+
     try {
       const url = `https://webhook.site/token/${WEBHOOK_UUID}/requests?sorting=newest&per_page=5`;
       const res = await axios.get(url, { timeout: 4000 });
+      consecutiveErrors = 0;
       const requests = res.data?.data || [];
 
       for (const reqItem of requests) {
@@ -39,16 +47,14 @@ export const startWebhookBridge = () => {
 
           processedEventIds.add(eventId);
 
-          // 保持 Set 在合理大小
           if (processedEventIds.size > 200) {
             const first = processedEventIds.values().next().value;
             processedEventIds.delete(first);
           }
 
-          // 判斷事件時間：只處理 60 秒內的即時事件，避免重複處理太舊的過期訊息
           const eventAge = Date.now() - (ev.timestamp || Date.now());
           if (eventAge > 60000) {
-            continue; // 超過 1 分鐘 replyToken 已失效，略過
+            continue;
           }
 
           logger.info('LINEBridge', `⚡ 即時捕獲群組訊息: "${ev.message?.text || ev.type}"`);
@@ -58,7 +64,9 @@ export const startWebhookBridge = () => {
         }
       }
     } catch (error) {
-      // 網路暫時中斷時靜默重試
+      if (error.response?.status === 429) {
+        consecutiveErrors = 10; // 遇到 429 暫停 20 秒
+      }
     }
-  }, 2000); // 每 2 秒巡檢一次
+  }, 2000);
 };
