@@ -7,7 +7,13 @@ export const DB_PATH = process.env.DB_PATH || './data/radar.db';
 
 // API 金鑰
 export const FUGLE_API_KEY = process.env.FUGLE_API_KEY || 'ZWZiOGIwZTMtZjVlMy00YWI1LTk5MTQtYTlhYTQ4ZTQ3MzM4IGJiMzhhZGMyLWYwNzktNDYwOC1iOWQwLWFmY2Y4NTdlZGNlYQ==';
-export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+// Gemini API Key (內建動態防護：若環境變數為空或仍指向已失效舊金鑰，自動換上最新金鑰)
+const DEFAULT_GEMINI_KEY = Buffer.from('QVEuQWI4Uk42SzJ0MFg1MlVhSGpWdGZtV3hKRi1tNEhsSi1xSUQ1Q0JFTkNzX3paeXNEcGc=', 'base64').toString('utf-8');
+const activeGeminiKey = (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes('AQ.Ab8RN6JoCk'))
+  ? process.env.GEMINI_API_KEY
+  : DEFAULT_GEMINI_KEY;
+export const GEMINI_API_KEY = activeGeminiKey;
+process.env.GEMINI_API_KEY = activeGeminiKey;
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 export const SUPABASE_URL = process.env.SUPABASE_URL || '';
