@@ -104,39 +104,63 @@ export const processUserQuestion = async (userText) => {
     }
   }
 
-  // 3. AI 分析生成回答
+  // 3. AI 分析生成回答 (幽默、主觀、逗趣、不官方)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: 'gemini-2.5-flash',
-        generationConfig: { temperature: 0.2 }
+        generationConfig: { temperature: 0.7 }
       });
 
-      const prompt = `你是一個專業、親切、口氣大白話的台股 AI 策略助理（名字叫財神熊）。
-現在使用者在 LINE 群組裡 @你 提問：「${cleanQuery}」
+      const prompt = `你是一個在 LINE 群組裡的股市靈魂人物「財神熊」🐻。你的個性極度有主見、講話超逗趣、接地氣、幽默好笑又敢愛敢恨，就像群組裡最會嘴砲又看盤神準的資深損友！
+群組朋友 @你 提問：「${cleanQuery}」
 ${quoteInfo ? quoteInfo : ''}
 
-請用最簡單、好懂、秒懂的文字（不要用艱深術語）回答他：
-1. 一針見血點出重點。
-2. 如果是問股票或大盤，直接明確給出應對建議：【加倉】、【賣一點】或【觀望】（三擇一），並接一句大白話原因。
-3. 語氣熱情有禮，字數控制在 100~150 字內，排版清楚好讀。
-4. 絕對嚴禁提到「老手」、「投資盈虧自負」、「請謹慎評估」等官腔廢話。`;
+【你的回覆風格規則】：
+1. 嚴禁任何官方、客套、客服或機器人腔調！不要講廢話。
+2. 語氣要非常「主觀、幽默、逗趣、嘴砲接地氣」，多用有趣的鄉民股市梗（如：接飛刀、當韭菜、主力數鈔票、喝下午茶、衝天砲、吃雞排）。
+3. 結論一定要超級主觀明確，直接給：【加倉】、【賣一點】或【觀望】（三擇一），並用一句逗趣生動的理由說明。
+4. 字數控制在 80~140 字左右，好笑、好懂、一眼秒笑秒懂。
+5. 嚴禁出現「老手」、「投資盈虧自負」、「請謹慎評估」等任何官方免責廢話。`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
       if (text) return text;
     } catch (err) {
-      logger.warn('LINEReply', 'Gemini API 異常，啟用智慧備援規則: ' + err.message);
+      logger.warn('LINEReply', 'Gemini API 異常，啟用逗趣主觀智慧備援規則: ' + err.message);
     }
   }
 
-  // 4. 智慧備援規則 (若 Gemini 402 或無 API Key)
+  // 4. 幽默逗趣主觀備援規則 (若 Gemini 402 或無 API Key)
   if (detectedSymbol && quoteInfo) {
-    return `🐻 老闆您好！收到您的提問：\n${quoteInfo}\n\n• 盤面建議：目前技術面處於整理關鍵區，若未跌破 5 日均線可安心續抱。\n• 操作應對：【觀望】— 原因：等待成交量能放大確認突破方向，先不急著追高，守穩支撐再分批低接！`;
+    // 根據漲跌動態產出極具個性與幽默感的吐槽
+    let funnyVerdict = '';
+    let action = '【觀望】';
+    let funnyReason = '';
+
+    // 解析漲跌
+    const isBigDrop = quoteInfo.includes('(-') && (quoteInfo.includes('-1.') || quoteInfo.includes('-2.') || quoteInfo.includes('-3.') || quoteInfo.includes('-4.'));
+    const isBigUp = quoteInfo.includes('(+' ) && (quoteInfo.includes('+1.') || quoteInfo.includes('+2.') || quoteInfo.includes('+3.') || quoteInfo.includes('+4.'));
+
+    if (isBigDrop) {
+      funnyVerdict = '哎唷喂呀！今天這根殺得鼻青臉腫，主力直接把散戶當韭菜在割！現在衝進去不是抄底，根本是用臉去擋砂石車。';
+      action = '【觀望】';
+      funnyReason = '手綁起來先去喝杯珍奶冷靜一下，別急著當烈士接飛刀，看主力下午要怎麼收場！';
+    } else if (isBigUp) {
+      funnyVerdict = '哇靠這檔今天吃大力丸逆！多頭整個殺紅了眼狂噴，主力開著火箭在衝鋒，爽度破表！';
+      action = '【加倉】';
+      funnyReason = '想跟著主力喝點肉湯可以，但別閉著眼睛硬追天花板，等盤中壓回支撐再分批上車！';
+    } else {
+      funnyVerdict = '盤成這樣本熊都要睡著了，多空雙方都在打瞌睡，主力在旁邊剔牙剔得很開心，沒啥搞頭。';
+      action = '【觀望】';
+      funnyReason = '無聊盤整不用瞎忙送手續費，持股抱好不要亂動，把時間拿去吃頓好的卡實在！';
+    }
+
+    return `🐻 財神熊掐指一算：\n${quoteInfo}\n\n${funnyVerdict}\n\n• 本熊主觀建議：${action} — 原因：${funnyReason}`;
   }
 
-  return `🐻 老闆您好！關於「${cleanQuery}」：\n目前大盤處於震盪輪動格局，操作上建議【觀望】— 保留適度現金，切勿盲目追高，等待主流族群回檔守穩均線再進場！`;
+  return `🐻 財神熊有話直說：\n問「${cleanQuery}」是吧？本熊主觀認為現在大盤跟坐雲霄飛車一樣刺激，主力都在搞心態！\n\n• 本熊操作建議：【觀望】— 原因：看不懂就不要硬送錢給主力花，抱緊現金就是王道，先翹腳在旁邊看主力耍猴戲！`;
 };
 
 /**
