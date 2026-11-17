@@ -6,12 +6,15 @@ export const PORT = process.env.PORT || 3001;
 export const DB_PATH = process.env.DB_PATH || './data/radar.db';
 
 // API 金鑰
-export const FUGLE_API_KEY = process.env.FUGLE_API_KEY || '';
+export const FUGLE_API_KEY = process.env.FUGLE_API_KEY || 'ZWZiOGIwZTMtZjVlMy00YWI1LTk5MTQtYTlhYTQ4ZTQ3MzM4IGJiMzhhZGMyLWYwNzktNDYwOC1iOWQwLWFmY2Y4NTdlZGNlYQ==';
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 export const SUPABASE_URL = process.env.SUPABASE_URL || '';
 export const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+export const LINE_CHANNEL_ID = process.env.LINE_CHANNEL_ID || '2012651187';
+export const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || 'a6841f1c4a39a3d52fb48b55a364ac16';
+export const LINE_GROUP_ID = process.env.LINE_GROUP_ID || 'Ccd0cb00fc7b0c603fc42e3609d65e556';
 
 // 交易參數 (預設值)
 export const AI_DANGER_LEVEL_THRESHOLD = parseInt(process.env.AI_DANGER_LEVEL_THRESHOLD || '4');

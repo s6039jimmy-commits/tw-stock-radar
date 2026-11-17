@@ -26,8 +26,8 @@ export const replyLineMessage = async (replyToken, text) => {
   // 直接透過 line.js 取得最新動態 token
   const { sendLineMessage } = await import('./line.js');
   // 從 line.js 獲取動態 token 支援
-  const channelId = process.env.LINE_CHANNEL_ID;
-  const channelSecret = process.env.LINE_CHANNEL_SECRET;
+  const channelId = process.env.LINE_CHANNEL_ID || '2012651187';
+  const channelSecret = process.env.LINE_CHANNEL_SECRET || 'a6841f1c4a39a3d52fb48b55a364ac16';
 
   let accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!accessToken && channelId && channelSecret) {
@@ -227,8 +227,8 @@ ${quoteInfo ? quoteInfo : ''}
  * 下載 LINE 傳送的圖片二進制內容
  */
 export const downloadLineImage = async (messageId) => {
-  const channelId = process.env.LINE_CHANNEL_ID;
-  const channelSecret = process.env.LINE_CHANNEL_SECRET;
+  const channelId = process.env.LINE_CHANNEL_ID || '2012651187';
+  const channelSecret = process.env.LINE_CHANNEL_SECRET || 'a6841f1c4a39a3d52fb48b55a364ac16';
   let accessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!accessToken && channelId && channelSecret) {
     const params = new URLSearchParams();

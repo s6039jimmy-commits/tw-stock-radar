@@ -23,8 +23,8 @@ async function getAccessToken() {
   }
 
   // 3. 使用 Channel ID 與 Channel Secret 動態取得官方 Token
-  const channelId = process.env.LINE_CHANNEL_ID;
-  const channelSecret = process.env.LINE_CHANNEL_SECRET;
+  const channelId = process.env.LINE_CHANNEL_ID || '2012651187';
+  const channelSecret = process.env.LINE_CHANNEL_SECRET || 'a6841f1c4a39a3d52fb48b55a364ac16';
 
   if (!channelId || !channelSecret) {
     return null;
@@ -69,7 +69,7 @@ function htmlToLineText(html) {
 
 export const sendLineMessage = async (message, overrideTo = null) => {
   const token = await getAccessToken();
-  const rawTo = overrideTo || process.env.LINE_GROUP_ID || process.env.LINE_USER_ID;
+  const rawTo = overrideTo || process.env.LINE_GROUP_ID || process.env.LINE_USER_ID || 'Ccd0cb00fc7b0c603fc42e3609d65e556';
 
   if (!token || !rawTo) {
     // 若未設定 LINE 相關設定，則靜默略過
