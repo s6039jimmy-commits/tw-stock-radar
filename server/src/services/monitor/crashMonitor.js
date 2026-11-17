@@ -90,7 +90,7 @@ export const checkMarketCrash = async (force = false) => {
 • <b>鴻海 (2317)：</b><code>${honhaiPrice} 元 (${honhaiSign}${honhaiChange}%)</code>
 • <b>盤面成交額：</b><code>累積約 ${currentValBillion} 億元</code>
 
-<b>🛡️ 老手緊急避險指引：</b>
+<b>🛡️ 緊急避險指引：</b>
 <pre>
 1. 盤面出現突發性恐慌倒貨，切勿急著進場「盲目猜底接刀」！
 2. 弱勢或已破短期均線的持股切勿凹單加碼。
