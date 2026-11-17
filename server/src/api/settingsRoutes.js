@@ -33,4 +33,12 @@ router.post('/test-telegram', async (req, res) => {
   res.json(result);
 });
 
+import { sendLineMessage } from '../services/notify/line.js';
+
+router.post('/test-line', async (req, res) => {
+  const msg = req.body?.message || '【Render 雲端驗證】這條訊息是由 Render 雲端伺服器發出的，證明即使關閉電腦，雲端機器人依然 24 小時正常運作！';
+  const result = await sendLineMessage(msg);
+  res.json({ success: result });
+});
+
 export default router;
