@@ -46,9 +46,9 @@ export const runPostMarketScan = async () => {
 
   logger.info('PostMarket', '📊 執行 14:05 大盤明日漲跌預測推播...');
 
-  const rawChatId = process.env.TELEGRAM_CHAT_ID;
-  if (!rawChatId) {
-    logger.warn('PostMarket', '未設定 Telegram，跳過 14:05 推播');
+  const hasTarget = process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
+  if (!hasTarget) {
+    logger.warn('PostMarket', '未設定推播目標 (LINE 或 TG)，跳過 14:05 推播');
     return;
   }
 

@@ -41,9 +41,9 @@ export const runMiddayScan = async (force = false) => {
 
   logger.info('MiddayScan', '🍱 執行 12:00 午盤大盤戰況快報掃描...');
 
-  const rawChatId = process.env.TELEGRAM_CHAT_ID;
-  if (!rawChatId) {
-    logger.warn('MiddayScan', '未設定 TELEGRAM_CHAT_ID，跳過 12:00 午盤快報');
+  const hasTarget = process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
+  if (!hasTarget) {
+    logger.warn('MiddayScan', '未設定推播目標 (LINE 或 TG)，跳過 12:00 午盤快報');
     return false;
   }
 

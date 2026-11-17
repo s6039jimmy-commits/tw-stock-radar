@@ -67,7 +67,7 @@ export const initTelegramBot = () => {
 };
 
 export const sendHTML = async (html, replyMarkup = null, overrideChatId = null) => {
-  // 同步支援 LINE 推播 (若環境變數已設定 LINE Token 與 Group/User ID)
+  // 1. 優先推播至 LINE
   let lineSuccess = false;
   try {
     lineSuccess = await sendLineMessage(html);
@@ -75,13 +75,16 @@ export const sendHTML = async (html, replyMarkup = null, overrideChatId = null) 
     logger.error('LINE', 'LINE 推播異常: ' + err.message);
   }
 
+  // 2. 依使用者最新指示：TG 通知已全面停用，所有訊息僅推送至 LINE
+  if (process.env.ENABLE_TELEGRAM !== 'true') {
+    return lineSuccess;
+  }
+
   const bot = getBot();
   const rawChatId = overrideChatId || process.env.TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID;
   
   if (!bot || !rawChatId) {
-    if (lineSuccess) return true;
-    logger.warn('Telegram', '未設定 Bot Token 或 Chat ID，無法發送 Telegram 訊息');
-    return false;
+    return lineSuccess;
   }
   
   const chatIds = String(rawChatId).split(',').map(s => s.trim()).filter(Boolean);
