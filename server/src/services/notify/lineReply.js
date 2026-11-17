@@ -118,11 +118,12 @@ export const processUserQuestion = async (userText) => {
 ${quoteInfo ? quoteInfo : ''}
 
 【回覆口吻要求】：
-1. 像一般跟聰明 AI 對話的口吻，自然、清楚、有邏輯，不要有機器人或客服官方腔。
-2. 保持「偏主觀」的明確判斷，不要含糊其詞或模稜兩可，直接給出你作為 AI 的個人看法。
-3. 如果是問個股或大盤，直接給出明確的操作傾向：【加倉】、【賣一點】或【觀望】（三擇一），並附上一針見血的原因分析。
-4. 控制在 80~140 字內，排版乾淨俐落，讓使用者在手機上 3 秒看懂重點。
-5. 嚴禁出現「老手」、「投資盈虧自負」、「請謹慎評估」等官腔廢話。`;
+1. 直接回答，嚴禁任何開場白（嚴禁出現「收到您的提問」、「您好」等廢話開頭）。
+2. 像一般跟聰明 AI 對話的口吻，自然、清楚、有邏輯，不要有機器人或客服官方腔。
+3. 保持「偏主觀」的明確判斷，不要含糊其詞或模稜兩可，直接給出你作為 AI 的個人看法。
+4. 如果是問個股或大盤，直接給出明確的操作傾向：【加倉】、【賣一點】或【觀望】（三擇一），並附上一針見血的原因分析。
+5. 控制在 80~140 字內，排版乾淨俐落，讓使用者在手機上 3 秒看懂重點。
+6. 嚴禁出現「老手」、「投資盈虧自負」、「請謹慎評估」等官腔廢話。`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
@@ -132,7 +133,7 @@ ${quoteInfo ? quoteInfo : ''}
     }
   }
 
-  // 4. 智慧備援規則 (偏主觀、俐落、像一般問 AI 的口吻)
+  // 4. 智慧備援規則 (直接回答，偏主觀、俐落)
   if (detectedSymbol && quoteInfo) {
     const isBigDrop = quoteInfo.includes('(-') && (quoteInfo.includes('-1.') || quoteInfo.includes('-2.') || quoteInfo.includes('-3.') || quoteInfo.includes('-4.'));
     const isBigUp = quoteInfo.includes('(+' ) && (quoteInfo.includes('+1.') || quoteInfo.includes('+2.') || quoteInfo.includes('+3.') || quoteInfo.includes('+4.'));
@@ -155,10 +156,10 @@ ${quoteInfo ? quoteInfo : ''}
       reason = '突破方向尚未明朗前不宜頻繁進出，既有持股續抱即可，靜待帶量突破區間再做決定。';
     }
 
-    return `🤖 收到您的提問：\n${quoteInfo}\n\n• AI 主觀分析：${view}\n• 操作應對：${action} — 原因：${reason}`;
+    return `${quoteInfo.trim()}\n\n• AI 主觀分析：${view}\n• 操作應對：${action} — 原因：${reason}`;
   }
 
-  return `🤖 關於「${cleanQuery}」：\n\n• AI 主觀分析：目前大盤處於震盪輪動格局，各族群強弱分化明顯，追價意願相對保守。\n• 操作應對：【觀望】 — 原因：指數在關鍵區間拉鋸，建議保留適度現金部位，觀察量能能否回溫再順勢佈局。`;
+  return `• AI 主觀分析：目前大盤處於震盪輪動格局，各族群強弱分化明顯，追價意願相對保守。\n• 操作應對：【觀望】 — 原因：指數在關鍵區間拉鋸，建議保留適度現金部位，觀察量能能否回溫再順勢佈局。`;
 };
 
 /**
