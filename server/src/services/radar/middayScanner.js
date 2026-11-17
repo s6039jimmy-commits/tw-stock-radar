@@ -35,15 +35,15 @@ function generateMiddayRuleBased({ tsePrice, tseChange, tseChangePercent, curren
 
 export const runMiddayScan = async (force = false) => {
   if (!force && !isTradingDay()) {
-    logger.info('MiddayScan', '🛑 今日為台股休市日／連假，不執行 11:30 午盤快報');
+    logger.info('MiddayScan', '🛑 今日為台股休市日／連假，不執行 12:00 午盤快報');
     return false;
   }
 
-  logger.info('MiddayScan', '🍱 執行 11:30 午盤大盤戰況快報掃描...');
+  logger.info('MiddayScan', '🍱 執行 12:00 午盤大盤戰況快報掃描...');
 
   const rawChatId = process.env.TELEGRAM_CHAT_ID;
   if (!rawChatId) {
-    logger.warn('MiddayScan', '未設定 TELEGRAM_CHAT_ID，跳過 11:30 午盤快報');
+    logger.warn('MiddayScan', '未設定 TELEGRAM_CHAT_ID，跳過 12:00 午盤快報');
     return false;
   }
 
@@ -87,10 +87,10 @@ export const runMiddayScan = async (force = false) => {
           generationConfig: { temperature: 0.0 }
         });
 
-        const prompt = `現在是台股盤中 11:30 吃飯時間。
-請為老闆產出最簡單、直白、3秒看懂的「11:30 午盤快報」，不需要任何專業術語，不要下半段分析，嚴禁任何自稱廢話。
+        const prompt = `現在是台股盤中 12:00 吃飯時間。
+請為老闆產出最簡單、直白、3秒看懂的「12:00 午盤快報」，不需要任何專業術語，不要下半段分析，嚴禁任何自稱廢話。
 
-【上午 11:30 盤面真實數據】：
+【上午 12:00 盤面真實數據】：
 - 加權指數大盤：${tsePrice} 點 (${tseSign}${tseChange} 點 / ${tseSign}${tseChangePercent}%)
 - 上午累積成交金額：約 ${currentValBillion} 億元 (全日預估量約 ${estValBillion} 億元)
 - 台積電 (2330)：${tsmcPrice} 元 (${tsmcSign}${tsmcChange}%)
@@ -116,7 +116,7 @@ ${newsText || '暫無突發異常利多利空'}
       }
     }
 
-    const html = `🍱 <b>【11:30 午盤大盤戰況】— ${today}</b>
+    const html = `🍱 <b>【12:00 午盤大盤戰況】— ${today}</b>
 
 • <b>加權指數：</b><code>${tsePrice} 點 (${tseSign}${tseChange} 點 / ${tseSign}${tseChangePercent}%)</code>
 • <b>預估成交量：</b><code>約 ${estValBillion} 億</code>
@@ -124,10 +124,10 @@ ${newsText || '暫無突發異常利多利空'}
 ${aiVerdict}`;
 
     const ok = await sendHTML(html);
-    logger.info('MiddayScan', `11:30 午盤快報發送結果: ${ok ? '成功' : '失敗'}`);
+    logger.info('MiddayScan', `12:00 午盤快報發送結果: ${ok ? '成功' : '失敗'}`);
     return ok;
   } catch (error) {
-    logger.error('MiddayScan', '執行 11:30 午盤快報失敗: ' + error.message, error);
+    logger.error('MiddayScan', '執行 12:00 午盤快報失敗: ' + error.message, error);
     return false;
   }
 };

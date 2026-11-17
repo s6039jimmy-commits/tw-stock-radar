@@ -35,12 +35,7 @@ export const startMonitorJobs = () => {
     if (isMarketOpen()) runPriceCheck();
   });
 
-  // 🚨 選擇 C：【緊急防護】大盤大暴跌才叫（平常完全安靜，只有當天加權指數突發暴跌超過 1.5% 時在群組警報）
-  cron.schedule('*/3 9-13 * * 1-5', () => {
-    if (isMarketOpen()) {
-      checkMarketCrash();
-    }
-  });
+
 
   // 動態檢查盤前預警時間 (每分鐘檢查一次)
   cron.schedule('* * * * 1-5', async () => {

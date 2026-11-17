@@ -90,12 +90,12 @@ export const startRadarJobs = () => {
   // 依使用者指示：取消 14:00 統計推播（不要勝率、不要風控廢話）
   // cron.schedule('0 14 * * 1-5', runPostMarketSummary, options);
 
-  // 🍱 選擇 B：11:30 午盤快報（一天只發一次）：大盤上午戰況、預估成交量、權值強弱、大戶偷拉偷殺
-  cron.schedule('30 11 * * 1-5', () => {
+  // 🍱 12:00 午盤快報（一天只發一次）：大盤上午戰況、預估成交量、權值強弱、大戶偷拉偷殺
+  cron.schedule('0 12 * * 1-5', () => {
     if (isTradingDay()) {
       runMiddayScan();
     } else {
-      logger.info('Scheduler', '今日為台股休市日／連假，跳過 11:30 午盤快報');
+      logger.info('Scheduler', '今日為台股休市日／連假，跳過 12:00 午盤快報');
     }
   }, options);
 
