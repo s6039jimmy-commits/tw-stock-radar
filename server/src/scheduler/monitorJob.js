@@ -4,7 +4,6 @@ import { isMarketOpen } from '../utils/helpers.js';
 import { getActivePositions, getSetting } from '../db/database.js';
 import { evaluatePosition, evaluatePositionNewsOnly } from '../services/monitor/exitEngine.js';
 import { connect, disconnect } from '../services/fugle/streaming.js';
-import { checkMarketCrash } from '../services/monitor/crashMonitor.js';
 import { logger } from '../utils/logger.js';
 
 export const runPriceCheck = async () => {
