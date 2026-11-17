@@ -101,7 +101,23 @@ export const processUserQuestion = async (userText) => {
     }
   }
 
-  // 3. AI 分析生成回答 (無死板攔截，讓 AI 自由發揮，但堅守操盤手風格與明確買賣定調)
+  // 3. 取得大盤加權指數即時數據，確保 AI 具備真實市場認知 (大盤現處於 4 萬點時代，絕不產生舊年代點位幻覺)
+  let marketInfo = '';
+  try {
+    const marketQuote = await getQuote('IX0001');
+    if (marketQuote) {
+      const mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
+      const mChange = parseFloat(marketQuote.change || 0);
+      const mChangePct = parseFloat(marketQuote.changePercent || 0);
+      const mSign = mChange >= 0 ? '+' : '';
+      const mHigh = marketQuote.highPrice || mPrice;
+      marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
+    }
+  } catch (e) {
+    // 忽略大盤獲取失敗
+  }
+
+  // 4. AI 分析生成回答 (無死板攔截，讓 AI 自由發揮，但堅守操盤手風格與明確買賣定調)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -112,14 +128,16 @@ export const processUserQuestion = async (userText) => {
 
       const prompt = `你是一個在 LINE 群組裡講話俐落、極度聰明的高勝率台股操盤高手（財神熊）。
 群組朋友提問：「${cleanQuery}」
+${marketInfo}
 ${quoteInfo ? quoteInfo : ''}
 
 【回覆風格要求】：
 1. 像真人高手在群組打字一樣自然流暢、自由發揮，嚴禁任何開場白（不要「您好」、「收到提問」），也嚴禁死板的報告格式（不要「【🏛️ 盤勢快評】」、「🎯 核心定調」、「👉 想買者」這種笨重模板！）。
 2. 控制在 2~4 句話內（80~120 字），言簡意賅，直接切中要害。
 3. 絕不講「觀望」這種廢話！必須明確給出答案：到底是【建議買進/加碼】還是【不建議碰/建議賣出停損】！
-4. 若問個股，直接點出關鍵支撐或停損價位，空手與持股者一句話帶過。
-5. 若問「all in / 歐印 / 借錢」等極端躁進操作，用操盤手犀利直白、毒舌中肯的方式打醒或指引，明確給出結論！`;
+4. 務必基於【當前台股大盤真實行情】回答（清楚認知大盤目前在 4 萬點高檔震盪整理，歷史高點曾逼近 5 萬點，絕不可產生舊年代點位認知幻覺）。
+5. 若問個股，直接點出關鍵支撐或停損價位，空手與持股者一句話帶過。
+6. 若問「all in / 歐印 / 借錢」等極端躁進操作，用操盤手犀利直白、毒舌中肯的方式打醒或指引，明確給出結論！`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
