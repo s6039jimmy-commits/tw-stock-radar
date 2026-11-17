@@ -38,7 +38,7 @@ export const chatWithAdvisor = async ({ message, history = [], stockContext = nu
 
   try {
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite',
       systemInstruction: SYSTEM_INSTRUCTION,
       generationConfig: {
         temperature: 0.0,

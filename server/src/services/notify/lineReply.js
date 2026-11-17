@@ -112,8 +112,8 @@ export const processUserQuestion = async (userText) => {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: { temperature: 0.3 }
+        model: 'gemini-3.1-flash-lite',
+        generationConfig: { temperature: 0.7 }
       });
 
       const prompt = `你是一個在 LINE 群組裡講話俐落、極度聰明的高勝率台股操盤高手（財神熊）。
@@ -212,8 +212,8 @@ export const processUserImage = async (imageBuffer) => {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: { temperature: 0.3 }
+        model: 'gemini-3.1-flash-lite',
+        generationConfig: { temperature: 0.5 }
       });
 
       const prompt = `你是一位擁有 20 年實戰經驗的頂尖外資與投顧首席台股操盤分析師（名字叫財神熊）。

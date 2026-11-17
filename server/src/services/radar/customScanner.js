@@ -56,7 +56,7 @@ if (GEMINI_API_KEY) {
     }
   };
   aiModel = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite',
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: schema,
