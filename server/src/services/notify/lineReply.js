@@ -383,15 +383,28 @@ export const handleLineWebhookEvent = async (event) => {
     const text = event.message.text.trim();
 
     if (isGroup) {
-      // 在群組內：只有當 @機器人 或 提到「財神熊」或 開頭包含「@」或「?」才觸發回覆
-      const isMentioned = event.message.mention?.mentees?.some(m => m.isSelf === true) 
-        || text.includes('@') 
+      const mentees = event.message.mention?.mentees || [];
+      const isDirectlyTagged = mentees.some(m => m.isSelf === true);
+      const taggedOthers = mentees.some(m => m.isSelf === false);
+
+      // 如果使用者有 @ 標註群組其他朋友（例如 @星森董事長），且沒有呼叫機器人，絕對不可插嘴！
+      if (taggedOthers && !isDirectlyTagged && !text.includes('財神熊')) {
+        return false;
+      }
+
+      // 只有在明確呼叫機器人時才回覆：
+      // 1. 官方 @ 到機器人 (isSelf === true)
+      // 2. 文字中包含「財神熊」
+      // 3. 文字包含「@財神熊」或「@機器人」
+      // 4. 指令開頭 ! 或 /
+      const isMentioned = isDirectlyTagged 
         || text.includes('財神熊') 
+        || /@\s*(財神熊|機器人|bot)/i.test(text)
         || text.startsWith('!')
         || text.startsWith('/');
 
       if (!isMentioned) {
-        return false; // 在群組裡平常聊天不打擾
+        return false; // 在群組裡平常朋友聊天完全不打擾
       }
     }
 
