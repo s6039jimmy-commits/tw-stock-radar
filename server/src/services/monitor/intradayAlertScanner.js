@@ -33,9 +33,10 @@ export const checkIntradayAlerts = async (forceCheck = false) => {
 
   const today = getTaipeiDate();
 
-  // 特殊保護：今日 (2026-11-18) 0056 跌破 1% 早盤已推播過，嚴防重啟後重跳 1%
+  // 特殊保護：今日 (2026-11-18) 0056 跌破 1% 與 2% 早盤皆已推播過，嚴防重啟後重跳
   if (today === '2026-11-18') {
     memoryTriggered.add('INTRADAY_ALERT_2026-11-18_0056_DOWN_1');
+    memoryTriggered.add('INTRADAY_ALERT_2026-11-18_0056_DOWN_2');
   }
 
   // 1. 監控台股加權指數 (IX0001) - 階梯門檻：每 1000 點
