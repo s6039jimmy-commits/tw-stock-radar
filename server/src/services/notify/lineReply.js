@@ -337,7 +337,12 @@ ${quoteInfo ? quoteInfo : ''}
     }
   }
 
-  // 6. 一般提問（現在買什麼、推薦、大盤）
+  // 6. 生活瑣事閒聊本地兜底
+  if (isClearlyOffTopic) {
+    return '哈哈，少跟我打嘴砲，專心賺錢或好好放鬆啦！';
+  }
+
+  // 7. 一般提問（現在買什麼、推薦、大盤）
   if (cleanQuery.includes('買') || cleanQuery.includes('推薦') || cleanQuery.includes('選') || cleanQuery.includes('大盤') || cleanQuery.includes('看')) {
     return `大盤這幾天權值股帶頭震盪回檔，投機飆股很容易被洗破線，【明確不建議追高投機股】！
 現在想進場，【強烈建議分批買抗震高息或市值型 ETF】（像 00919、0056、006208），跌破五日線分批定額買最安全，手上記得留 4 成現金！`;
