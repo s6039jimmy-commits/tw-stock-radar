@@ -50,13 +50,23 @@ export const runMiddayScan = async (force = false) => {
   const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });
 
   try {
-    const [tseQuote, tsmcQuote, honhaiQuote, mtkQuote, news] = await Promise.all([
+    const [tseQuote, tsmcQuote, honhaiQuote, mtkQuote, q56, q6208, news] = await Promise.all([
       getQuote('IX0001'),
       getQuote('2330'),
       getQuote('2317'),
       getQuote('2454'),
+      getQuote('0056'),
+      getQuote('006208'),
       fetchLatestStockNews(8)
     ]);
+
+    const price56 = q56?.closePrice || q56?.lastPrice || 0;
+    const change56 = parseFloat(q56?.changePercent || q56?.change || 0);
+    const sign56 = change56 >= 0 ? '+' : '';
+
+    const price6208 = q6208?.closePrice || q6208?.lastPrice || 0;
+    const change6208 = parseFloat(q6208?.changePercent || q6208?.change || 0);
+    const sign6208 = change6208 >= 0 ? '+' : '';
 
     const tsePrice = tseQuote?.closePrice || tseQuote?.lastPrice || 0;
     const tseChange = parseFloat(tseQuote?.change || 0);
@@ -93,6 +103,8 @@ export const runMiddayScan = async (force = false) => {
 【上午 12:00 盤面真實數據】：
 - 加權指數大盤：${tsePrice} 點 (${tseSign}${tseChange} 點 / ${tseSign}${tseChangePercent}%)
 - 上午累積成交金額：約 ${currentValBillion} 億元 (全日預估量約 ${estValBillion} 億元)
+- 0056 元大高股息：${price56} 元 (${sign56}${change56}%)
+- 006208 富邦台灣50：${price6208} 元 (${sign6208}${change6208}%)
 - 台積電 (2330)：${tsmcPrice} 元 (${tsmcSign}${tsmcChange}%)
 - 鴻海 (2317)：${honhaiPrice} 元 (${honhaiSign}${honhaiChange}%)
 
@@ -120,6 +132,8 @@ ${newsText || '暫無突發異常利多利空'}
 
 • <b>加權指數：</b><code>${tsePrice} 點 (${tseSign}${tseChange} 點 / ${tseSign}${tseChangePercent}%)</code>
 • <b>預估成交量：</b><code>約 ${estValBillion} 億</code>
+• <b>0056 元大高股息：</b><code>NT$ ${price56} (${sign56}${change56}%)</code>
+• <b>006208 富邦台50：</b><code>NT$ ${price6208} (${sign6208}${change6208}%)</code>
 • <b>台積電現況：</b><code>NT$ ${tsmcPrice} (${tsmcSign}${tsmcChange}%)</code>
 ${aiVerdict}`;
 
