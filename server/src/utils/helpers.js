@@ -128,9 +128,9 @@ export const getMarketHolidayAlerts = (baseDate = new Date()) => {
   // 檢查明日是否為台股國定假日（排除普通六日）
   if (holidayCache.has(twTomorrowStr)) {
     const hName = holidayNames.get(twTomorrowStr) || '國定假日';
-    alerts.push(`🏮 <b>【台股明日休市提醒】</b>：明日 (${m}/${d}) 適逢「${hName}」台股休市一日，明日 14:05 暫停推播。`);
+    alerts.push(`🏮 <b>【台股明日休市提醒】</b>：明日 (${m}/${d}) 適逢「${hName}」台股全天休市，各時段戰報暫停，讓您安心休假！`);
   } else if (twTomorrowDay === 6) {
-    alerts.push(`🏖️ <b>【週末休市提醒】</b>：明日進入週末休市，祝週末愉快！下週一 14:05 準時恢復預測。`);
+    alerts.push(`🏖️ <b>【週末休市提醒】</b>：明日進入週末休市，祝週末愉快！下週一開盤 08:40 準時為您恢復追蹤。`);
   }
 
   // 2. 檢查今晚/明日美股是否休市
