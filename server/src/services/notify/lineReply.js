@@ -343,17 +343,25 @@ export const processUserImage = async (imageBuffer) => {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: 'gemini-3.1-flash-lite',
-        generationConfig: { temperature: 0.5 }
+        generationConfig: { temperature: 0.2 }
       });
 
-      const prompt = `你是一位在 LINE 群組裡跟好友交流的高勝率頂尖台股操盤高手（財神熊）。
-使用者在 LINE 群組上傳了一張圖片（股票走勢圖、K線、券商對帳單或損益截圖）。
+      const prompt = `你是在 LINE 群組裡的頂尖台股操盤手「財神熊」。
+群組使用者上傳了一張圖片。
 
-【回覆核心指引】：
-1. 完全比照你在 Gemini 官方網頁上的真人自然對話狀態發揮！字數長短自由，講得透徹有理最重要，嚴禁刻板的句數或字數束縛。
-2. 保持頂尖操盤手的犀利直覺，一眼看穿圖片中的盲點、型態或獲利關鍵，嚴禁任何客服廢話開場白，嚴禁死板報告模板。
-3. 絕不講「觀望」！必須直接給出主觀操作方向：到底是【建議加碼買進】還是【不建議碰/建議賣出停損】！
-4. 個股或走勢直接點出具體防守或停損價位，空手與持股者分別給出果斷指引。`;
+【第一步：嚴格辨識圖片類型（非常關鍵！）】：
+判斷這張圖片是否屬於【股市相關圖表】（例如：股票K線圖、技術走勢圖、券商下單對帳單、庫存損益截圖、財報數字圖表）。
+
+⚠️ 若這張圖片是【日常生活照片】（例如：玩具、公仔、食物、美食、旅遊、風景、人物自拍、寵物、日常聊天抓圖、商品照片等）：
+👉 這是群組朋友的日常生活分享，跟股票投資完全無關！
+👉【絕對禁止自作多情強行分析！絕對禁止把日常物品硬扯成股票並開始說教！】
+👉 請直接回覆單一單詞：IGNORE（系統將自動保持安靜，不打擾群組聊天）。
+
+【第二步：若確實是股市/K線/對帳單圖片，才進行分析】：
+1. 採俐落快刀流（長度約 100~130 字），一眼看穿圖片中的盲點、型態或獲利關鍵，嚴禁長篇大論！
+2. 絕不講「觀望」！直接給出果斷定調：到底是【建議偏多/加碼】還是【不建議碰/建議賣出調節】！
+3. 點出關鍵支撐或防守停損價位，空手與持股者分別給出簡短指引。
+4. 嚴禁任何客服廢話開場白，嚴禁死板報告模板。`;
 
       const imagePart = {
         inlineData: {
@@ -364,14 +372,18 @@ export const processUserImage = async (imageBuffer) => {
 
       const res = await model.generateContent([prompt, imagePart]);
       const text = res.response.text().trim();
-      if (text) return text;
+      if (text) {
+        if (text.includes('IGNORE')) {
+          return null; // 日常照片直接忽略，保持安靜
+        }
+        return text;
+      }
     } catch (err) {
       logger.warn('LINEReply', 'Gemini 圖片分析異常: ' + err.message);
     }
   }
 
-  // 真人自然口吻備援 (無 API 時維持高手直覺，絕不回廢話或死板模板)
-  return `看這張圖的線型與籌碼結構，短線破線賣壓沉重、量能失控，【強烈不建議進場追高接刀】！手上有部位的建議趁反彈減碼出清，空手者保留現金先別急著抄底。`;
+  return null; // 非股市圖片或無分析結果時，預設保持安靜，絕不打擾群組
 };
 
 /**
@@ -443,8 +455,14 @@ export const handleLineWebhookEvent = async (event) => {
       if (!imageBuffer) return false;
 
       const replyContent = await processUserImage(imageBuffer);
+      // 若為日常照片或非股市圖片 (IGNORE/null)，保持完全安靜，絕不打擾群組聊天
+      if (!replyContent || replyContent.includes('IGNORE')) {
+        logger.info('LINEReply', '圖片為日常非股市圖片，保持安靜不打擾群組。');
+        return false;
+      }
+
       const ok = await replyLineMessage(replyToken, replyContent);
-      logger.info('LINEReply', `圖片回覆結果: ${ok ? '成功' : '失敗'}`);
+      logger.info('LINEReply', `圖片分析回覆結果: ${ok ? '成功' : '失敗'}`);
       return ok;
     } catch (err) {
       logger.error('LINEReply', '處理圖片失敗: ' + err.message);
