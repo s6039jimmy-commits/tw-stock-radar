@@ -75,7 +75,8 @@ export const startRadarJobs = () => {
   }, options);
   
   // 🌙 半夜夜盤監控：美股盤中每 15 分鐘巡檢，若 EWT 跌幅 ≥ 1% 立即通知（整晚只報一次，防擾眠不洗版）
-  cron.schedule('*/15 21,22,23,0,1,2,3,4 * * *', () => {
+  // 自動適配夏令 (21:30~04:00) 與冬令 (22:30~05:00)，由 isUsMarketOpen 依紐約時區精準判定開休盤
+  cron.schedule('*/15 21,22,23,0,1,2,3,4,5 * * *', () => {
     scanNightSession();
   }, options);
   
