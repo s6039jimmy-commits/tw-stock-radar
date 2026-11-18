@@ -95,6 +95,11 @@ export const saveConversationTurn = (sessionId, userText, replyText, senderName 
 
 const userProfileCache = new Map();
 
+// 群組最新上傳圖片快取 (sessionId -> { imageBuffer, timestamp })
+const recentGroupImages = new Map();
+// 群組最近 @財神熊 標註記錄 (sessionId -> { timestamp, text })
+const recentGroupMentions = new Map();
+
 async function getUserDisplayName(groupId, userId) {
   if (!userId) return '群組朋友';
   if (userProfileCache.has(userId)) return userProfileCache.get(userId);
@@ -335,33 +340,31 @@ export const downloadLineImage = async (messageId) => {
 };
 
 /**
- * 圖片多模態 AI 分析 (K線圖、對帳單、庫存損益截圖)
+ * 圖片多模態 AI 分析 (K線圖、對帳單、庫存損益截圖，以及生活照日常嘴砲)
  */
-export const processUserImage = async (imageBuffer) => {
+export const processUserImage = async (imageBuffer, userQuery = '') => {
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: 'gemini-3.1-flash-lite',
-        generationConfig: { temperature: 0.2 }
+        generationConfig: { temperature: 0.7 }
       });
 
-      const prompt = `你是在 LINE 群組裡的頂尖台股操盤手「財神熊」。
-群組使用者上傳了一張圖片。
+      const prompt = `你是在 LINE 群組裡跟好友日常互動的頂尖台股操盤手「財神熊」。
+群組朋友傳了一張圖片，並叫你看圖${userQuery ? `，他說：「${userQuery}」` : ''}。
 
-【第一步：嚴格辨識圖片類型（非常關鍵！）】：
-判斷這張圖片是否屬於【股市相關圖表】（例如：股票K線圖、技術走勢圖、券商下單對帳單、庫存損益截圖、財報數字圖表）。
+【情境一：若圖片是【日常生活照片】（如玩具公仔、食物美食、風景出遊、自拍、日常物品、生活瑣事等，非股票）】：
+👉【絕對禁止長篇大論！絕對禁止一本正經把日常物品當成股票說教分析！】
+👉 請用 1~2 句話（約 20~40 字以內），像真人老朋友一樣日常嘴砲、幽默吐槽或開玩笑回覆即可！
+例如：
+- 看到熊抱哥/公仔：「叫我看熊抱哥幹嘛？抱這隻能幫你持股解套逆？趕快收心回去盯盤啦！」
+- 看到美食：「傳這個誘惑我是想怎樣？賺錢了不請客，還故意拍照拉仇恨是吧？」
+- 看到風景出遊：「在外面爽爽玩還叫我看盤？贏錢記得分紅，輸了別找我借機票錢就好。」
 
-⚠️ 若這張圖片是【日常生活照片】（例如：玩具、公仔、食物、美食、旅遊、風景、人物自拍、寵物、日常聊天抓圖、商品照片等）：
-👉 這是群組朋友的日常生活分享，跟股票投資完全無關！
-👉【絕對禁止自作多情強行分析！絕對禁止把日常物品硬扯成股票並開始說教！】
-👉 請直接回覆單一單詞：IGNORE（系統將自動保持安靜，不打擾群組聊天）。
-
-【第二步：若確實是股市/K線/對帳單圖片，才進行分析】：
-1. 採俐落快刀流（長度約 100~130 字），一眼看穿圖片中的盲點、型態或獲利關鍵，嚴禁長篇大論！
-2. 絕不講「觀望」！直接給出果斷定調：到底是【建議偏多/加碼】還是【不建議碰/建議賣出調節】！
-3. 點出關鍵支撐或防守停損價位，空手與持股者分別給出簡短指引。
-4. 嚴禁任何客服廢話開場白，嚴禁死板報告模板。`;
+【情境二：若圖片是【股市相關圖表】（股票K線、走勢圖、券商對帳單、損益截圖）】：
+👉 採俐落快刀流（長度約 100~130 字），一眼看穿型態盲點，直接給出果斷定調【建議偏多/加碼】或【不建議碰/建議賣出調節】，並附上關鍵防守價位。
+👉 嚴禁長篇大論、客服開場白或死板報告模板。`;
 
       const imagePart = {
         inlineData: {
@@ -372,18 +375,13 @@ export const processUserImage = async (imageBuffer) => {
 
       const res = await model.generateContent([prompt, imagePart]);
       const text = res.response.text().trim();
-      if (text) {
-        if (text.includes('IGNORE')) {
-          return null; // 日常照片直接忽略，保持安靜
-        }
-        return text;
-      }
+      if (text) return text;
     } catch (err) {
       logger.warn('LINEReply', 'Gemini 圖片分析異常: ' + err.message);
     }
   }
 
-  return null; // 非股市圖片或無分析結果時，預設保持安靜，絕不打擾群組
+  return `看你這張圖，我只想說：別分心搞這些有的沒的，趕快收心回去盯盤啦！`;
 };
 
 /**
@@ -397,6 +395,9 @@ export const handleLineWebhookEvent = async (event) => {
   const replyToken = event.replyToken;
   const isGroup = event.source?.type === 'group' || event.source?.type === 'room';
   const msgType = event.message?.type;
+  const sessionId = event.source?.groupId || event.source?.roomId || event.source?.userId || 'default_session';
+  const groupId = event.source?.groupId;
+  const userId = event.source?.userId;
 
   // 1. 處理文字提問
   if (msgType === 'text') {
@@ -413,10 +414,6 @@ export const handleLineWebhookEvent = async (event) => {
       }
 
       // 只有在明確呼叫機器人時才回覆：
-      // 1. 官方 @ 到機器人 (isSelf === true)
-      // 2. 文字中包含「財神熊」
-      // 3. 文字包含「@財神熊」或「@機器人」
-      // 4. 指令開頭 ! 或 /
       const isMentioned = isDirectlyTagged 
         || text.includes('財神熊') 
         || /@\s*(財神熊|機器人|bot)/i.test(text)
@@ -428,9 +425,6 @@ export const handleLineWebhookEvent = async (event) => {
       }
     }
 
-    const sessionId = event.source?.groupId || event.source?.roomId || event.source?.userId || 'default_session';
-    const groupId = event.source?.groupId;
-    const userId = event.source?.userId;
     let senderName = '群組朋友';
     if (userId) {
       try {
@@ -440,6 +434,27 @@ export const handleLineWebhookEvent = async (event) => {
       }
     }
 
+    // 紀錄該群組最近一次 @財神熊 的時間與文字 (供先 @ 後傳圖片使用)
+    recentGroupMentions.set(sessionId, { timestamp: Date.now(), text });
+
+    // 檢查群組過去 3 分鐘內是否剛好有上傳過圖片？
+    // (例如使用者先傳了一張照片，緊接著 @財神熊 看這張 / @財神熊)
+    const cachedImage = recentGroupImages.get(sessionId);
+    const hasRecentImage = cachedImage && (Date.now() - cachedImage.timestamp < 180000);
+
+    if (hasRecentImage) {
+      // 成功匹配：使用者傳了圖並 @財神熊 看圖！
+      recentGroupImages.delete(sessionId);
+      recentGroupMentions.delete(sessionId);
+
+      logger.info('LINEReply', `收到 [${senderName}] @財神熊 看圖: "${text}"`);
+      const replyContent = await processUserImage(cachedImage.imageBuffer, text);
+      const ok = await replyLineMessage(replyToken, replyContent);
+      logger.info('LINEReply', `看圖回覆結果: ${ok ? '成功' : '失敗'}`);
+      return ok;
+    }
+
+    // 正常的純文字提問流程
     logger.info('LINEReply', `收到 [${senderName}] 提問: "${text}" (replyToken: ${replyToken})`);
     const replyContent = await processUserQuestion(text, sessionId, senderName);
     const ok = await replyLineMessage(replyToken, replyContent);
@@ -447,23 +462,36 @@ export const handleLineWebhookEvent = async (event) => {
     return ok;
   }
 
-  // 2. 處理圖片分析 (截圖、對帳單、走勢圖)
+  // 2. 處理圖片訊息
   if (msgType === 'image') {
-    logger.info('LINEReply', `📸 收到群組圖片訊息 (ID: ${event.message.id})，開始進行 AI 視覺分析...`);
     try {
       const imageBuffer = await downloadLineImage(event.message.id);
       if (!imageBuffer) return false;
 
-      const replyContent = await processUserImage(imageBuffer);
-      // 若為日常照片或非股市圖片 (IGNORE/null)，保持完全安靜，絕不打擾群組聊天
-      if (!replyContent || replyContent.includes('IGNORE')) {
-        logger.info('LINEReply', '圖片為日常非股市圖片，保持安靜不打擾群組。');
-        return false;
+      // 快取該群組圖片（保存 3 分鐘，等待使用者 @財神熊 指示看圖）
+      recentGroupImages.set(sessionId, { imageBuffer, timestamp: Date.now() });
+
+      // 檢查使用者是否在 60 秒前才剛 @財神熊（例如先打字「@財神熊 幫看這張」，接著立刻丟出圖片）
+      const lastMention = recentGroupMentions.get(sessionId);
+      const isMentionPending = lastMention && (Date.now() - lastMention.timestamp < 60000);
+
+      // 如果是在 1 對 1 私聊，或是群組裡使用者剛剛才 @過財神熊：
+      if (!isGroup || isMentionPending) {
+        const userPrompt = isMentionPending ? lastMention.text : '';
+        recentGroupImages.delete(sessionId);
+        recentGroupMentions.delete(sessionId);
+
+        logger.info('LINEReply', `📸 收到圖片且匹配到 @財神熊，開始進行 AI 分析與回覆...`);
+        const replyContent = await processUserImage(imageBuffer, userPrompt);
+        const ok = await replyLineMessage(replyToken, replyContent);
+        logger.info('LINEReply', `圖片回覆結果: ${ok ? '成功' : '失敗'}`);
+        return ok;
       }
 
-      const ok = await replyLineMessage(replyToken, replyContent);
-      logger.info('LINEReply', `圖片分析回覆結果: ${ok ? '成功' : '失敗'}`);
-      return ok;
+      // 如果在群組內，且【沒有 @財神熊】：
+      // 絕對不主動插話！只默默暫存圖片，靜候使用者 @財神熊 才是請它看！
+      logger.info('LINEReply', '📸 群組收到日常圖片，未 @財神熊，保持靜音並快取等待 @ 指示。');
+      return false;
     } catch (err) {
       logger.error('LINEReply', '處理圖片失敗: ' + err.message);
       return false;
