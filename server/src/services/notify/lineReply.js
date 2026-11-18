@@ -184,19 +184,36 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
     stockName = '加權指數大盤';
   }
 
-  // 嚴格判定是否為生活瑣事閒聊：只有完全沒有股市關鍵字，且符合閒聊關鍵字時才算！
-  const hasStockKeywords = /股|盤|跌|漲|買|賣|多|空|進場|出場|停損|停利|線|k|點位|支撐|壓力|加碼|減碼|套牢|解套|預測|預估|行情/i.test(cleanQuery);
-  const isClearlyOffTopic = !hasStockKeywords && /借錢|借我|買車|吃什麼|午餐|晚餐|天氣|笑話|女友|男友|好笑|唱歌|澳門|打架|嗆|帥不帥|在幹嘛|睡了沒/i.test(cleanQuery);
+  // 是否包含股票／交易關鍵字
+  const hasStockKeywords = /股|盤|跌|漲|買|賣|多|空|進場|出場|停損|停利|五日線|均線|支撐|壓力|點位|加碼|減碼|套牢|解套|預測|預估|行情|etf|融資|外資|主力|籌碼|基本面/i.test(cleanQuery);
 
-  // 若當前問題未指定股票，且非明顯無關閒聊，但上一話題有討論的股票，自動接續該股票！
-  if (!detectedSymbol && lastMentionedStock && !isClearlyOffTopic) {
+  // 代名詞接續上一話題（僅在問題包含「它、這檔、那檔、這隻、那現在呢」等明確指涉詞時才延續！）
+  const hasPronounOrFollowUp = /它|這檔|那檔|這隻|這支|這檔能|那這檔|停損設哪|什麼時候能進|那現在呢/i.test(cleanQuery);
+  if (!detectedSymbol && lastMentionedStock && hasPronounOrFollowUp) {
     detectedSymbol = lastMentionedStock.symbol;
     stockName = lastMentionedStock.name;
   }
 
+  // 4. 精確判定意圖（預設：若完全沒提到股票代碼、大盤或交易詞彙，一律是日常閒聊 CASUAL_CHAT！）
+  let detectedIntent = 'CASUAL_CHAT';
+  if (detectedSymbol && detectedSymbol !== 'IX0001') {
+    detectedIntent = 'STOCK_ANALYSIS';
+  } else if (isMarketForecastQuery) {
+    detectedIntent = 'MARKET_FORECAST';
+  } else if (isMarketGeneralQuery || detectedSymbol === 'IX0001') {
+    detectedIntent = 'MARKET_ANALYSIS';
+  } else if (hasStockKeywords) {
+    detectedIntent = 'STOCK_GENERAL';
+  } else {
+    detectedIntent = 'CASUAL_CHAT'; // 百家樂、生活瑣事、開玩笑、打招呼，一律日常閒聊！
+  }
+
+  const isCasual = (detectedIntent === 'CASUAL_CHAT');
+
   let quoteInfo = '';
   let currentQuote = null;
-  if (detectedSymbol) {
+  // 只有在非閒聊且有目標股票時，才抓取個股報價
+  if (!isCasual && detectedSymbol) {
     try {
       currentQuote = await getQuote(detectedSymbol);
       if (currentQuote) {
@@ -212,34 +229,29 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
     }
   }
 
-  // 4. 取得大盤加權指數即時數據，確保 AI 具備真實市場認知 (大盤現處於 4 萬點時代，絕不產生舊年代點位幻覺)
+  // 取得大盤數據（僅在股票/大盤意圖時注入，日常閒聊絕對不注入！）
   let marketInfo = '';
   let mPrice = 0;
-  try {
-    const marketQuote = await getQuote('IX0001');
-    if (marketQuote) {
-      mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
-      const mChange = parseFloat(marketQuote.change || 0);
-      const mChangePct = parseFloat(marketQuote.changePercent || 0);
-      const mSign = mChange >= 0 ? '+' : '';
-      const mHigh = marketQuote.highPrice || mPrice;
-      marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
+  if (!isCasual) {
+    try {
+      const marketQuote = await getQuote('IX0001');
+      if (marketQuote) {
+        mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
+        const mChange = parseFloat(marketQuote.change || 0);
+        const mChangePct = parseFloat(marketQuote.changePercent || 0);
+        const mSign = mChange >= 0 ? '+' : '';
+        const mHigh = marketQuote.highPrice || mPrice;
+        marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
+      }
+    } catch (e) {
+      // 忽略大盤獲取失敗
     }
-  } catch (e) {
-    // 忽略大盤獲取失敗
   }
 
-  // 明確判定意圖
-  let detectedIntent = 'MARKET_ANALYSIS';
-  if (isClearlyOffTopic) {
-    detectedIntent = 'CASUAL_CHAT';
-  } else if (isMarketForecastQuery) {
-    detectedIntent = 'MARKET_FORECAST';
-  } else if (detectedSymbol && detectedSymbol !== 'IX0001') {
-    detectedIntent = 'STOCK_ANALYSIS';
-  }
+  // 歷史話題（閒聊時不要注入上一輪股票歷史，避免污染干擾！）
+  const effectiveHistory = isCasual ? '' : historyContext;
 
-  // 5. AI 分析生成回答 (無死板攔截，讓 AI 自由發揮，但堅守操盤手風格與明確買賣定調)
+  // 5. AI 分析生成回答 (無死板公文模板，讓操盤手以真人自然口吻回答)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -248,38 +260,42 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
         generationConfig: { temperature: 0.5 }
       });
 
-      const prompt = `你是 LINE 群組裡跟好友日常互動的頂尖台股操盤手「財神熊」。
+      const prompt = `你是 LINE 群組裡跟好友日常互動的「財神熊」（資深台股老操盤手）。
 群組朋友提問：「${cleanQuery}」
 系統判定提問意圖：${detectedIntent}
-${historyContext}
-${isClearlyOffTopic ? '' : marketInfo}
-${quoteInfo ? quoteInfo : ''}
+${effectiveHistory}
+${marketInfo}
+${quoteInfo}
 
-【核心角色定位與最高準則】：
-你是一位「專業果斷、風格俐落、帶好友在股市穩健賺錢」的資深台股操盤手。
-你的原則是：面對股市問題絕不推託、絕不說教、直接給出明確的方向與應對策略！
+【角色風格】：
+你講話像一位真人在 LINE 群組裡跟兄弟打字的老手：乾脆俐落、幽默接地氣、絕不套用死板公文模板！
 
-【針對不同意圖的具體回覆規則】：
+【針對不同意圖的回覆規則（嚴格執行！）】：
 
-【意圖一：CASUAL_CHAT（純生活幹話 / 閒聊 / 互嗆 / 與股票完全無關）】
-- 嚴禁提及大盤點位或說教！
-- 只要用【1 句話（20~30 字以內）】像真人朋友一樣幽默調侃吐槽或開玩笑接梗過去即可。
+【意圖一：CASUAL_CHAT（日常閒聊 / 百家樂 / 賭博 / 生活瑣事 / 打屁開玩笑）】
+👉 這不是問股票！用真人老友口吻，幽默調侃吐槽或開玩笑回覆 1~2 句話（約 20~40 字以內）。
+👉 ❌【最高禁令】：
+  1. 絕對嚴禁主動提及大盤點位、加權指數、防守價或股票代碼！
+  2. 絕對嚴禁在回答後面硬塞「明日多空定調」、「盤面現況」或「操作建議」！
+  3. 說完該回答的閒聊就俐落結束，多扯半句股票都算違規！
+  例如朋友問「有人靠百家致富的麼」：
+  回：「百家樂致富的永遠只有開賭場的老闆！進去都是給人送錢，想賺錢還是專心看盤做趨勢卡實在。」
 
-【意圖二：STOCK_ANALYSIS（認真問具體個股 / 點位 / 停損）】
-- 採俐落快刀流（約 80~120 字），直接給出明確定調【建議買進/加碼】或【不建議碰/逢高減碼】，並附上關鍵防守價與 1 句核心理由。
+【意圖二：STOCK_ANALYSIS（問具體個股 / 點位 / 停損）】
+👉 像真人老手自然打字（約 60~100 字），直接給出明確定調【建議買進/加碼】或【不建議碰/逢高減碼】，並附上關鍵防守價與 1 句核心理由。
+👉 嚴禁客服機械標題與多餘廢話。
 
-【意圖三：MARKET_FORECAST 或 MARKET_ANALYSIS（認真問明日漲跌預測 / 大盤走勢 / 明天怎麼看）】
-- 【最高禁令】：
-  ❌ 絕對嚴禁說「我不算命」、「我不是算命師」、「少問這種廢話」、「每天問我也救不了你的帳戶」、「記性差」等任何推託、諷刺或人身攻擊！
-  ❌ 嚴禁拒絕回答！作為專業操盤手，面對明日盤勢本來就該有清晰的多空推演與應對規劃！
-- 【回覆格式（約 80~130 字，簡潔有力）】：
-  1. 明日多空定調：直接給出【偏多看漲】、【偏空看跌】或【高檔震盪整理】。
-  2. 盤面現況與關鍵防守：結合加權指數真實點位（大盤現處於 4 萬點歷史高位，如收盤在 ${mPrice || 40194} 點），點出短線核心防守關卡（例如 39800 點整數支撐）。
-  3. 明日操作應對：明確建議【持股續抱】、【逢回加碼】或【逢高調節】，並附上一句大白話核心原因！
+【意圖三：MARKET_FORECAST 或 MARKET_ANALYSIS 或 STOCK_GENERAL（問大盤明日漲跌 / 走勢 / 明天怎麼看）】
+👉 這是認真問盤！像真人老操盤手自然打字（約 60~100 字），將多空定調、關鍵支撐與應對建議融合成一段自然流暢的大白話，講完重點即停！
+👉 ❌【最高禁令】：
+  1. 絕對嚴禁說「我不算命」、「我不是算命師」、「少問這種廢話」、「每天問我也救不了你的帳戶」、「記性差」等任何推託或人身攻擊！
+  2. 絕對嚴禁分條列點寫出生硬的「明日多空定調：」、「盤面現況：」、「操作建議：」等公文標題！直接用自然口吻說出觀點即可。
+  例如朋友問「明天漲嗎」：
+  回：「明天我看【高檔震盪偏多】。加權今天收在 ${mPrice || 40194} 點，歷史高位難免震盪，短線防守先看 39800 點整數關卡。手上持股只要沒破五日均線就安心續抱，不用急著追高，等壓回均線有守再找買點！」
 
 【共通規範】：
-1. 嚴禁任何客服機械用語（如「老闆您好」、「投資有風險」等免責廢話）。
-2. 真人操盤手講話口吻，乾脆俐落、給定調、給防守點，讓朋友 3 秒看懂！`;
+1. 嚴禁任何客服機械開場白（如「老闆您好」、「投資有風險」等廢話）。
+2. 自然對話、真人打字，不套死板公版！`;
 
       let text = '';
       try {
@@ -337,8 +353,11 @@ ${quoteInfo ? quoteInfo : ''}
     }
   }
 
-  // 6. 生活瑣事閒聊本地兜底
-  if (isClearlyOffTopic) {
+  // 6. 生活瑣事 / 閒聊本地兜底
+  if (isCasual) {
+    if (/百家|賭|賭場|百家樂/i.test(cleanQuery)) {
+      return '百家樂致富的永遠只有開賭場的老闆！進去都是給人送錢，想賺錢還是腳踏實地看盤做趨勢比較實在。';
+    }
     return '哈哈，少跟我打嘴砲，專心賺錢或好好放鬆啦！';
   }
 
