@@ -170,8 +170,12 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
   let detectedSymbol = resolved?.symbol || null;
   let stockName = resolved?.name || '';
 
-  // 若當前問題未指定股票，但上一話題有討論的股票，自動接續該股票！
-  if (!detectedSymbol && lastMentionedStock) {
+  // 檢查當前問題是否明顯與股票無關（如純借錢、買車、生活瑣事等）
+  const isClearlyOffTopic = /借錢|借我|買車|吃什麼|午餐|晚餐|天氣|笑話|女友|男友|好笑|唱歌/i.test(cleanQuery) 
+    && !/股|盤|跌|漲|買進|賣出|進場|出場|停損|停利|線|k/i.test(cleanQuery);
+
+  // 若當前問題未指定股票，且非明顯無關閒聊，但上一話題有討論的股票，自動接續該股票！
+  if (!detectedSymbol && lastMentionedStock && !isClearlyOffTopic) {
     detectedSymbol = lastMentionedStock.symbol;
     stockName = lastMentionedStock.name;
   }
@@ -222,16 +226,16 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
       const prompt = `你是一位在 LINE 群組裡跟好友交流的高勝率頂尖台股操盤高手（財神熊）。
 群組朋友提問：「${cleanQuery}」
 ${historyContext}
-${marketInfo}
+${isClearlyOffTopic ? '' : marketInfo}
 ${quoteInfo ? quoteInfo : ''}
 
 【回覆核心指引】：
-1. 具備頂級對話靈性：若使用者是在接續上一話題（例如「房子貸款也要買」、「那什麼時候買」、「停損看哪」），請務必順著上一話題的脈絡回答，展現出高度默契！
-2. 完全比照你在 Gemini 官方網頁上的真人自然聊天狀態發揮！字數長短隨意、自然表達，講得有血有肉有觀點，絕不要被固定字數或句數框架限制。
-3. 保持頂尖操盤手的犀利直覺與口吻，嚴禁任何客服廢話開場白（不要「您好」、「很高興為您解答」），也絕不要死板的報告條列模板。
+1. 【非股市無關話題（非常重要！）】：如果提問跟股票/投資/盤面完全無關（例如：純借錢、借錢買車/消費、無關生活瑣事、開玩笑），【絕對不要長篇大論回一堆大道理，這樣看起來很奇怪】！只要用 1~2 句話（簡短犀利、幽默或毒舌吐槽）快速回覆或擋掉即可（例如：「我是股市操盤手不是地下錢莊，買車找銀行別找我，我只看股票。」）！
+2. 具備頂級對話靈性：若使用者是在接續上一話題（例如「那這檔停損看哪」、「什麼時候能進」），請務必順著上一話題的脈絡回答，展現出高度默契！
+3. 若是【真正的股市/投資問題】：完全比照你在 Gemini 官方網頁上的真人自然對話狀態發揮，字數長短隨意、自然表達，講得有血有肉有觀點，嚴禁任何客服廢話開場白，絕不要死板的報告條列模板。
 4. 絕不講「大盤觀望」這種沒有意義的廢話！必須給出你直率、主觀的操作定調：到底【建議買進/加碼】還是【不建議碰/建議賣出調節】！
 5. 務必基於【當前台股大盤真實行情】回答（清楚認知大盤目前在 4 萬點高檔震盪整理，歷史高點曾逼近 5 萬點，絕不可產生舊年代點位認知幻覺）。
-6. 若問個股，點出關鍵支撐或停損價位；若問極端操作（歐印、貸款買、借錢等），直接用毒舌中肯的大白話痛快打醒！`;
+6. 若問個股，點出關鍵支撐或停損價位；若問股市極端操作（歐印、貸款炒股等），用操盤手大白話打醒！`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text().trim();
