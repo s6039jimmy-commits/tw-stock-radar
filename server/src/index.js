@@ -9,6 +9,7 @@ import apiRoutes from './api/routes.js';
 import { startAllJobs, stopAllJobs } from './scheduler/index.js';
 import { initTelegramBot } from './services/notify/telegram.js';
 import { startWebhookBridge } from './services/notify/lineBridge.js';
+import { initKeepAlive } from './services/monitor/keepAlive.js';
 import { logger } from './utils/logger.js';
 
 const app = express();
@@ -74,6 +75,9 @@ const start = async () => {
 
     // 啟動排程引擎
     startAllJobs(broadcast);
+
+    // 啟動防休眠心跳機制 (防止 Render 雲端休眠導致定時推播錯過)
+    initKeepAlive();
 
     // 啟動伺服器
     server.listen(PORT, () => {

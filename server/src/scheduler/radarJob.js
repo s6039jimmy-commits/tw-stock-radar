@@ -140,41 +140,41 @@ export const startRadarJobs = () => {
       const totalMinutes = hour * 60 + minute;
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(now);
 
-      // 1. 08:40 盤前補發 (08:40 ~ 08:55 間重啟且未發送)
-      if (totalMinutes >= 8 * 60 + 40 && totalMinutes <= 8 * 60 + 55) {
+      // 1. 08:40 盤前補發 (08:40 ~ 09:00 間若未發送自動補發)
+      if (totalMinutes >= 8 * 60 + 40 && totalMinutes <= 9 * 60) {
         const sent = await getSetting(`SENT_PRE_MARKET_${todayDate}`);
         if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到剛重啟處於 08:40 區間且尚未發送，自動補發盤前快報...');
+          logger.info('Scheduler', '🔄 檢測到處於 08:40 區間且尚未發送，自動補發盤前快報...');
           await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
           await runPreMarketScan();
         }
       }
 
-      // 2. 09:01 開盤補發 (09:01 ~ 09:20 間重啟且未發送)
-      if (totalMinutes >= 9 * 60 + 1 && totalMinutes <= 9 * 60 + 20) {
+      // 2. 09:01 開盤補發 (09:01 ~ 09:30 間若未發送自動補發)
+      if (totalMinutes >= 9 * 60 + 1 && totalMinutes <= 9 * 60 + 30) {
         const sent = await getSetting(`SENT_OPEN_MARKET_${todayDate}`);
         if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到剛重啟處於 09:01 區間且尚未發送，自動補發開盤快報...');
+          logger.info('Scheduler', '🔄 檢測到處於 09:01 區間且尚未發送，自動補發開盤快報...');
           await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
           await runOpenMarketScan();
         }
       }
 
-      // 3. 12:00 午盤補發 (12:00 ~ 12:20 間重啟且未發送)
-      if (totalMinutes >= 12 * 60 && totalMinutes <= 12 * 60 + 20) {
+      // 3. 12:00 午盤補發 (12:00 ~ 12:45 間若未發送自動補發)
+      if (totalMinutes >= 12 * 60 && totalMinutes <= 12 * 60 + 45) {
         const sent = await getSetting(`SENT_MIDDAY_${todayDate}`);
         if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到剛重啟處於 12:00 區間且尚未發送，自動補發午盤快報...');
+          logger.info('Scheduler', '🔄 檢測到處於 12:00 區間且尚未發送，自動補發午盤快報...');
           await setSetting(`SENT_MIDDAY_${todayDate}`, '1');
           await runMiddayScan();
         }
       }
 
-      // 4. 14:05 盤後補發 (14:05 ~ 14:30 間重啟且未發送)
-      if (totalMinutes >= 14 * 60 + 5 && totalMinutes <= 14 * 60 + 30) {
+      // 4. 14:05 盤後補發 (14:05 ~ 15:00 間若未發送自動補發)
+      if (totalMinutes >= 14 * 60 + 5 && totalMinutes <= 15 * 60) {
         const sent = await getSetting(`SENT_POST_MARKET_${todayDate}`);
         if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到剛重啟處於 14:05 區間且尚未發送，自動補發盤後快報...');
+          logger.info('Scheduler', '🔄 檢測到處於 14:05 區間且尚未發送，自動補發盤後快報...');
           await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
           await runPostMarketStockScan();
         }
@@ -184,7 +184,13 @@ export const startRadarJobs = () => {
     }
   };
 
+  // 開機立刻執行一次補發檢查
   runCatchupChecks();
+
+  // 🛡️ 智慧補發巡檢：每 1 分鐘定期巡檢是否有漏發的定時快報（防伺服器短暫凍結或休眠甦醒後錯過整點）
+  cron.schedule('* * * * *', () => {
+    runCatchupChecks();
+  }, options);
 
   logger.info('Scheduler', '✅ 所有排程已啟動 (台北時間)');
 };
