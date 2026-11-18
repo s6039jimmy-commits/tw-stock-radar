@@ -8,6 +8,7 @@
     "test:postmarket": "node -e \"import('./src/services/radar/postMarketScanner.js').then(m => m.runPostMarketScan())\"",
     "test:midday": "node -e \"import('./src/services/radar/middayScanner.js').then(m => m.runMiddayScan(true))\"",
     "test:premarket": "node -e \"import('./src/services/radar/preMarketScanner.js').then(m => m.runPreMarketScan(true))\"",
+    "test:openmarket": "node -e \"import('./src/services/radar/openMarketScanner.js').then(m => m.runOpenMarketScan(true))\"",
     "test:night": "node -r dotenv/config -e \"import('./src/services/radar/nightScanner.js').then(m => m.scanNightSession(true))\""
   },
   "dependencies": {

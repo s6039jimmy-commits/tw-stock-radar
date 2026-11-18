@@ -6,6 +6,7 @@ import { scan as scanMomentum } from '../services/radar/momentumScanner.js';
 import { scan as scanCustom } from '../services/radar/customScanner.js';
 import { scanNightSession } from '../services/radar/nightScanner.js';
 import { runPreMarketScan } from '../services/radar/preMarketScanner.js';
+import { runOpenMarketScan } from '../services/radar/openMarketScanner.js';
 import { runPostMarketScan } from '../services/radar/postMarketScanner.js';
 import { runMiddayScan } from '../services/radar/middayScanner.js';
 import { getTradeStats, getSetting, setSetting } from '../db/database.js';
@@ -29,7 +30,7 @@ export const runCustomScan = async () => {
   }
 };
 
-export { runPreMarketScan };
+export { runPreMarketScan, runOpenMarketScan };
 
 export const runNightScan = async () => {
   await scanNightSession();
@@ -88,6 +89,17 @@ export const startRadarJobs = () => {
       logger.info('Scheduler', '今日為台股休市日／連假，跳過 08:40 盤前快報');
     }
   }, options);
+
+  // 🔔 09:01 一開盤戰況速報（台股 09:00 開盤撮合完成後第一時間推播，涵蓋加權指數、0056、006208、台積電）
+  cron.schedule('1 9 * * 1-5', async () => {
+    if (isTradingDay()) {
+      const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
+      await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
+      runOpenMarketScan();
+    } else {
+      logger.info('Scheduler', '今日為台股休市日／連假，跳過 09:01 開盤快報');
+    }
+  }, options);
   
   // 🍱 12:00 午盤快報（一天只發一次）：大盤上午戰況、預估成交量、權值強弱、大戶偷拉偷殺
   cron.schedule('0 12 * * 1-5', async () => {
@@ -137,7 +149,17 @@ export const startRadarJobs = () => {
         }
       }
 
-      // 2. 12:00 午盤補發 (12:00 ~ 12:20 間重啟且未發送)
+      // 2. 09:01 開盤補發 (09:01 ~ 09:20 間重啟且未發送)
+      if (totalMinutes >= 9 * 60 + 1 && totalMinutes <= 9 * 60 + 20) {
+        const sent = await getSetting(`SENT_OPEN_MARKET_${todayDate}`);
+        if (!sent) {
+          logger.info('Scheduler', '🔄 檢測到剛重啟處於 09:01 區間且尚未發送，自動補發開盤快報...');
+          await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
+          await runOpenMarketScan();
+        }
+      }
+
+      // 3. 12:00 午盤補發 (12:00 ~ 12:20 間重啟且未發送)
       if (totalMinutes >= 12 * 60 && totalMinutes <= 12 * 60 + 20) {
         const sent = await getSetting(`SENT_MIDDAY_${todayDate}`);
         if (!sent) {
@@ -147,7 +169,7 @@ export const startRadarJobs = () => {
         }
       }
 
-      // 3. 14:05 盤後補發 (14:05 ~ 14:30 間重啟且未發送)
+      // 4. 14:05 盤後補發 (14:05 ~ 14:30 間重啟且未發送)
       if (totalMinutes >= 14 * 60 + 5 && totalMinutes <= 14 * 60 + 30) {
         const sent = await getSetting(`SENT_POST_MARKET_${todayDate}`);
         if (!sent) {
