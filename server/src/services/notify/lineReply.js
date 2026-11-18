@@ -175,9 +175,18 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
   let detectedSymbol = resolved?.symbol || null;
   let stockName = resolved?.name || '';
 
-  // 檢查當前問題是否明顯與股票無關（如純借錢、買車、生活瑣事等）
-  const isClearlyOffTopic = /借錢|借我|買車|吃什麼|午餐|晚餐|天氣|笑話|女友|男友|好笑|唱歌/i.test(cleanQuery) 
-    && !/股|盤|跌|漲|買進|賣出|進場|出場|停損|停利|線|k/i.test(cleanQuery);
+  // 判斷是否為「大盤明日多空預測 / 漲跌走勢 / 整體盤勢研判」（如「明天漲嗎」、「明日台股漲跌預估」、「明天大盤怎麼看」、「明天會漲嗎」、「大盤還能追嗎」）
+  const isMarketForecastQuery = /(明天|明日|下週一|下周一).*(漲|跌|走勢|大盤|盤勢|多空|預估|預測|怎麼看|如何|行情)|(明天|明日|下週一|下周一)(會不會|是漲是跌|漲嗎|跌嗎)|明天的盤|台股明天|明天台股/i.test(cleanQuery);
+  const isMarketGeneralQuery = /大盤|加權|指數|台股整體|整體市場|盤面/i.test(cleanQuery);
+
+  if ((isMarketForecastQuery || isMarketGeneralQuery) && !detectedSymbol) {
+    detectedSymbol = 'IX0001';
+    stockName = '加權指數大盤';
+  }
+
+  // 嚴格判定是否為生活瑣事閒聊：只有完全沒有股市關鍵字，且符合閒聊關鍵字時才算！
+  const hasStockKeywords = /股|盤|跌|漲|買|賣|多|空|進場|出場|停損|停利|線|k|點位|支撐|壓力|加碼|減碼|套牢|解套|預測|預估|行情/i.test(cleanQuery);
+  const isClearlyOffTopic = !hasStockKeywords && /借錢|借我|買車|吃什麼|午餐|晚餐|天氣|笑話|女友|男友|好笑|唱歌|澳門|打架|嗆|帥不帥|在幹嘛|睡了沒/i.test(cleanQuery);
 
   // 若當前問題未指定股票，且非明顯無關閒聊，但上一話題有討論的股票，自動接續該股票！
   if (!detectedSymbol && lastMentionedStock && !isClearlyOffTopic) {
@@ -205,10 +214,11 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
 
   // 4. 取得大盤加權指數即時數據，確保 AI 具備真實市場認知 (大盤現處於 4 萬點時代，絕不產生舊年代點位幻覺)
   let marketInfo = '';
+  let mPrice = 0;
   try {
     const marketQuote = await getQuote('IX0001');
     if (marketQuote) {
-      const mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
+      mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
       const mChange = parseFloat(marketQuote.change || 0);
       const mChangePct = parseFloat(marketQuote.changePercent || 0);
       const mSign = mChange >= 0 ? '+' : '';
@@ -219,53 +229,81 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
     // 忽略大盤獲取失敗
   }
 
+  // 明確判定意圖
+  let detectedIntent = 'MARKET_ANALYSIS';
+  if (isClearlyOffTopic) {
+    detectedIntent = 'CASUAL_CHAT';
+  } else if (isMarketForecastQuery) {
+    detectedIntent = 'MARKET_FORECAST';
+  } else if (detectedSymbol && detectedSymbol !== 'IX0001') {
+    detectedIntent = 'STOCK_ANALYSIS';
+  }
+
   // 5. AI 分析生成回答 (無死板攔截，讓 AI 自由發揮，但堅守操盤手風格與明確買賣定調)
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: 'gemini-3.1-flash-lite',
-        generationConfig: { temperature: 0.7 }
+        generationConfig: { temperature: 0.5 }
       });
 
-      const prompt = `你是在 LINE 群組裡跟好友日常互動的頂尖台股操盤手「財神熊」。
+      const prompt = `你是 LINE 群組裡跟好友日常互動的頂尖台股操盤手「財神熊」。
 群組朋友提問：「${cleanQuery}」
+系統判定提問意圖：${detectedIntent}
 ${historyContext}
 ${isClearlyOffTopic ? '' : marketInfo}
 ${quoteInfo ? quoteInfo : ''}
 
-【第一步：先判斷對方的提問情境與意圖（非常重要！）】：
+【核心角色定位與最高準則】：
+你是一位「專業果斷、風格俐落、帶好友在股市穩健賺錢」的資深台股操盤手。
+你的原則是：面對股市問題絕不推託、絕不說教、直接給出明確的方向與應對策略！
 
-情境一：【純幹話 / 挑釁 / 開玩笑 / 閒聊 / 無聊問問 / 互嗆】
-（特徵：對方根本不是在認真做股票功課，只是在打嘴砲、挑釁、找碴、開玩笑、閒聊，例如：「我現在就在澳門 你想怎樣」、「你很嗆喔」、「熊哥你帥嗎」、「今天中午吃什麼」、「你在幹嘛」等）
-👉【絕對禁止一本正經說教！絕對禁止強行扯大盤點位、籌碼面或大道理！絕對不可長篇大論！】
-👉 只要用【1 句話（20~30 字以內）】像真人老友一樣幽默調侃、毒舌回嗆或接梗笑鬧過去即可！
-例如回：
-- 「人在澳門賭錢還這麼嗆？贏錢記得分紅，輸光了別找我借錢買機票就好。」
-- 「你想怎樣？我只想盯盤賺錢，你在澳門吹冷氣少來惹我。」
-- 「帥不帥看什麼？看對帳單啊，只要今天賺夠多，我連呼吸都是帥的。」
+【針對不同意圖的具體回覆規則】：
 
-情境二：【認真問具體個股 / 點位 / 停損】
-（特徵：詢問某檔能不能買、代碼行情、防守價、某檔走勢）
-👉 採俐落快刀流（約 100~130 字），直接給出明確定調【建議買進/分批加碼】或【不建議碰/建議賣出調節】，並附上關鍵防守價與核心理由。
+【意圖一：CASUAL_CHAT（純生活幹話 / 閒聊 / 互嗆 / 與股票完全無關）】
+- 嚴禁提及大盤點位或說教！
+- 只要用【1 句話（20~30 字以內）】像真人朋友一樣幽默調侃吐槽或開玩笑接梗過去即可。
 
-情境三：【認真問大盤大格局 / 總經宏觀趨勢】
-（特徵：詢問大盤方向、能不能上五萬、整體多空、長線資產佈局）
-👉 採老手深度流（約 180~250 字，分 2~3 個自然短段落），基於當前台股大盤真實行情（約 4 萬點時代），深度剖析主力結構與操作思維。
+【意圖二：STOCK_ANALYSIS（認真問具體個股 / 點位 / 停損）】
+- 採俐落快刀流（約 80~120 字），直接給出明確定調【建議買進/加碼】或【不建議碰/逢高減碼】，並附上關鍵防守價與 1 句核心理由。
 
-【共通要求】：
-1. 具備頂級對話靈性：嚴禁任何客服機械開場白（例如「老闆您好」），不要死板條列報告，真人講話風格！
-2. 若使用者是在接續上一話題（例如「那這檔停損看哪」），順著脈絡自然回答。
-3. 大盤真實行情數據僅在對方【認真詢問股市大盤】時使用，嚴禁在朋友日常幹話或無聊問問中搬出大盤說教！`;
+【意圖三：MARKET_FORECAST 或 MARKET_ANALYSIS（認真問明日漲跌預測 / 大盤走勢 / 明天怎麼看）】
+- 【最高禁令】：
+  ❌ 絕對嚴禁說「我不算命」、「我不是算命師」、「少問這種廢話」、「每天問我也救不了你的帳戶」、「記性差」等任何推託、諷刺或人身攻擊！
+  ❌ 嚴禁拒絕回答！作為專業操盤手，面對明日盤勢本來就該有清晰的多空推演與應對規劃！
+- 【回覆格式（約 80~130 字，簡潔有力）】：
+  1. 明日多空定調：直接給出【偏多看漲】、【偏空看跌】或【高檔震盪整理】。
+  2. 盤面現況與關鍵防守：結合加權指數真實點位（大盤現處於 4 萬點歷史高位，如收盤在 ${mPrice || 40194} 點），點出短線核心防守關卡（例如 39800 點整數支撐）。
+  3. 明日操作應對：明確建議【持股續抱】、【逢回加碼】或【逢高調節】，並附上一句大白話核心原因！
 
-      const res = await model.generateContent(prompt);
-      const text = res.response.text().trim();
+【共通規範】：
+1. 嚴禁任何客服機械用語（如「老闆您好」、「投資有風險」等免責廢話）。
+2. 真人操盤手講話口吻，乾脆俐落、給定調、給防守點，讓朋友 3 秒看懂！`;
+
+      let text = '';
+      try {
+        const res = await model.generateContent(prompt);
+        text = res.response.text().trim();
+      } catch (geminiError) {
+        try {
+          const modelFallback = genAI.getGenerativeModel({
+            model: 'gemini-3.8-flash',
+            generationConfig: { temperature: 0.5 }
+          });
+          const resFallback = await modelFallback.generateContent(prompt);
+          text = resFallback.response.text().trim();
+        } catch (fbErr) {
+          logger.warn('LINEReply', 'Gemini API 異常，啟用真人自然口吻量化引擎: ' + geminiError.message);
+        }
+      }
+
       if (text) {
         saveConversationTurn(sessionId, cleanQuery, text, senderName, detectedSymbol, stockName);
         return text;
       }
     } catch (err) {
-      logger.warn('LINEReply', 'Gemini API 異常，啟用真人自然口吻量化引擎: ' + err.message);
+      logger.warn('LINEReply', 'Gemini 呼叫流程異常: ' + err.message);
     }
   }
 
