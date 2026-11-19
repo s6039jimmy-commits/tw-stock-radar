@@ -75,11 +75,10 @@ export const startRadarJobs = () => {
     }
   }, options);
   
-  // 🌙 半夜夜盤監控：美股盤中每 15 分鐘巡檢，若 EWT 跌幅 ≥ 1% 立即通知（整晚只報一次，防擾眠不洗版）
-  // 自動適配夏令 (21:30~04:00) 與冬令 (22:30~05:00)，由 isUsMarketOpen 依紐約時區精準判定開休盤
-  cron.schedule('*/15 21,22,23,0,1,2,3,4,5 * * *', () => {
-    scanNightSession();
-  }, options);
+  // 🌙 夜盤監控（已依指示停用主動推播以節省免費額度）
+  // cron.schedule('*/15 21,22,23,0,1,2,3,4,5 * * *', () => {
+  //   scanNightSession();
+  // }, options);
   
   // ☀️ 08:40 盤前試撮與開盤預估（一天只發一次）：大白話漲跌預判、外盤 ADR 連動、原因好懂秒懂
   cron.schedule('40 8 * * 1-5', async () => {
@@ -94,31 +93,11 @@ export const startRadarJobs = () => {
     }
   }, options);
 
-  // 🔔 09:01 一開盤戰況速報（台股 09:00 開盤撮合完成後第一時間推播，涵蓋加權指數、0056、006208、台積電）
-  cron.schedule('1 9 * * 1-5', async () => {
-    if (isTradingDay()) {
-      const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      const ok = await runOpenMarketScan();
-      if (ok) {
-        await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
-      }
-    } else {
-      logger.info('Scheduler', '今日為台股休市日／連假，跳過 09:01 開盤快報');
-    }
-  }, options);
+  // 🔔 09:01 一開盤戰況速報（已依指示停用主動推播，改由使用者在群組 @財神熊 查詢以節省免費額度）
+  // cron.schedule('1 9 * * 1-5', async () => { ... });
   
-  // 🍱 12:00 午盤快報（一天只發一次）：大盤上午戰況、預估成交量、權值強弱、大戶偷拉偷殺
-  cron.schedule('0 12 * * 1-5', async () => {
-    if (isTradingDay()) {
-      const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      const ok = await runMiddayScan();
-      if (ok) {
-        await setSetting(`SENT_MIDDAY_${todayDate}`, '1');
-      }
-    } else {
-      logger.info('Scheduler', '今日為台股休市日／連假，跳過 12:00 午盤快報');
-    }
-  }, options);
+  // 🍱 12:00 午盤快報（已依指示停用主動推播，改由使用者在群組 @財神熊 查詢以節省免費額度）
+  // cron.schedule('0 12 * * 1-5', async () => { ... });
 
   // 🎯 14:05 唯一盤後推播：大盤指數明日漲跌預測（僅在正常交易日發送，連假休市絕不推播）
   cron.schedule('5 14 * * 1-5', async () => {
@@ -157,30 +136,6 @@ export const startRadarJobs = () => {
           const ok = await runPreMarketScan();
           if (ok) {
             await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
-          }
-        }
-      }
-
-      // 2. 09:01 開盤補發 (09:01 ~ 09:30 間若未發送自動補發)
-      if (totalMinutes >= 9 * 60 + 1 && totalMinutes <= 9 * 60 + 30) {
-        const sent = await getSetting(`SENT_OPEN_MARKET_${todayDate}`);
-        if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到處於 09:01 區間且尚未發送，自動補發開盤快報...');
-          const ok = await runOpenMarketScan();
-          if (ok) {
-            await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
-          }
-        }
-      }
-
-      // 3. 12:00 午盤補發 (12:00 ~ 12:45 間若未發送自動補發)
-      if (totalMinutes >= 12 * 60 && totalMinutes <= 12 * 60 + 45) {
-        const sent = await getSetting(`SENT_MIDDAY_${todayDate}`);
-        if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到處於 12:00 區間且尚未發送，自動補發午盤快報...');
-          const ok = await runMiddayScan();
-          if (ok) {
-            await setSetting(`SENT_MIDDAY_${todayDate}`, '1');
           }
         }
       }

@@ -35,13 +35,12 @@ export const startMonitorJobs = () => {
     if (isMarketOpen()) runPriceCheck();
   });
 
-  // ⚡ 盤中重大波動巡檢 (加權指數大跌/大漲 1000 點、006208 與 0056 漲跌幅破 1%)
-  // 台北時間 09:00 ~ 13:30 開盤時段每 2 分鐘自動巡檢
-  cron.schedule('*/2 9-13 * * 1-5', () => {
-    if (isMarketOpen()) {
-      checkIntradayAlerts();
-    }
-  }, { timezone: 'Asia/Taipei' });
+  // ⚡ 盤中重大波動巡檢（已依指示停用主動推播以節省免費額度）
+  // cron.schedule('*/2 9-13 * * 1-5', () => {
+  //   if (isMarketOpen()) {
+  //     checkIntradayAlerts();
+  //   }
+  // }, { timezone: 'Asia/Taipei' });
 
 
 
