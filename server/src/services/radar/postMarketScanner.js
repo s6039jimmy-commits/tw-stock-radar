@@ -146,9 +146,11 @@ ${newsText}
 ${holidaySection}
 ${aiVerdict}`;
 
-    await sendHTML(html);
-    logger.info('PostMarket', '✅ 14:05 大盤明日預測推播發送完成');
+    const ok = await sendHTML(html);
+    logger.info('PostMarket', `✅ 14:05 大盤明日預測推播發送${ok ? '完成' : '失敗'}`);
+    return ok;
   } catch (e) {
     logger.error('PostMarket', '14:05 推播失敗: ' + e.message, e);
+    return false;
   }
 };

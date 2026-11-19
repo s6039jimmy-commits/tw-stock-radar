@@ -57,9 +57,10 @@ export const runPostMarketSummary = async () => {
 export const runPostMarketStockScan = async () => {
   logger.info('Scheduler', '執行盤後選股掃描...');
   try {
-    await runPostMarketScan();
+    return await runPostMarketScan();
   } catch (e) {
     logger.error('Scheduler', '盤後選股失敗', e);
+    return false;
   }
 };
 
@@ -84,8 +85,10 @@ export const startRadarJobs = () => {
   cron.schedule('40 8 * * 1-5', async () => {
     if (isTradingDay()) {
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
-      runPreMarketScan();
+      const ok = await runPreMarketScan();
+      if (ok) {
+        await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
+      }
     } else {
       logger.info('Scheduler', '今日為台股休市日／連假，跳過 08:40 盤前快報');
     }
@@ -95,8 +98,10 @@ export const startRadarJobs = () => {
   cron.schedule('1 9 * * 1-5', async () => {
     if (isTradingDay()) {
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
-      runOpenMarketScan();
+      const ok = await runOpenMarketScan();
+      if (ok) {
+        await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
+      }
     } else {
       logger.info('Scheduler', '今日為台股休市日／連假，跳過 09:01 開盤快報');
     }
@@ -106,8 +111,10 @@ export const startRadarJobs = () => {
   cron.schedule('0 12 * * 1-5', async () => {
     if (isTradingDay()) {
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      await setSetting(`SENT_MIDDAY_${todayDate}`, '1');
-      runMiddayScan();
+      const ok = await runMiddayScan();
+      if (ok) {
+        await setSetting(`SENT_MIDDAY_${todayDate}`, '1');
+      }
     } else {
       logger.info('Scheduler', '今日為台股休市日／連假，跳過 12:00 午盤快報');
     }
@@ -117,8 +124,10 @@ export const startRadarJobs = () => {
   cron.schedule('5 14 * * 1-5', async () => {
     if (isTradingDay()) {
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
-      runPostMarketStockScan();
+      const ok = await runPostMarketStockScan();
+      if (ok) {
+        await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
+      }
     } else {
       logger.info('Scheduler', '今日為台股休市日／連假，跳过 14:05 大盤推播');
     }
@@ -140,13 +149,15 @@ export const startRadarJobs = () => {
       const totalMinutes = hour * 60 + minute;
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(now);
 
-      // 1. 08:40 盤前補發 (08:40 ~ 09:00 間若未發送自動補發)
-      if (totalMinutes >= 8 * 60 + 40 && totalMinutes <= 9 * 60) {
+      // 1. 08:40 盤前補發 (08:40 ~ 09:01 間若未發送自動補發)
+      if (totalMinutes >= 8 * 60 + 40 && totalMinutes <= 9 * 60 + 1) {
         const sent = await getSetting(`SENT_PRE_MARKET_${todayDate}`);
         if (!sent) {
           logger.info('Scheduler', '🔄 檢測到處於 08:40 區間且尚未發送，自動補發盤前快報...');
-          await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
-          await runPreMarketScan();
+          const ok = await runPreMarketScan();
+          if (ok) {
+            await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
+          }
         }
       }
 
@@ -155,8 +166,10 @@ export const startRadarJobs = () => {
         const sent = await getSetting(`SENT_OPEN_MARKET_${todayDate}`);
         if (!sent) {
           logger.info('Scheduler', '🔄 檢測到處於 09:01 區間且尚未發送，自動補發開盤快報...');
-          await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
-          await runOpenMarketScan();
+          const ok = await runOpenMarketScan();
+          if (ok) {
+            await setSetting(`SENT_OPEN_MARKET_${todayDate}`, '1');
+          }
         }
       }
 
@@ -165,8 +178,10 @@ export const startRadarJobs = () => {
         const sent = await getSetting(`SENT_MIDDAY_${todayDate}`);
         if (!sent) {
           logger.info('Scheduler', '🔄 檢測到處於 12:00 區間且尚未發送，自動補發午盤快報...');
-          await setSetting(`SENT_MIDDAY_${todayDate}`, '1');
-          await runMiddayScan();
+          const ok = await runMiddayScan();
+          if (ok) {
+            await setSetting(`SENT_MIDDAY_${todayDate}`, '1');
+          }
         }
       }
 
@@ -175,8 +190,10 @@ export const startRadarJobs = () => {
         const sent = await getSetting(`SENT_POST_MARKET_${todayDate}`);
         if (!sent) {
           logger.info('Scheduler', '🔄 檢測到處於 14:05 區間且尚未發送，自動補發盤後快報...');
-          await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
-          await runPostMarketStockScan();
+          const ok = await runPostMarketStockScan();
+          if (ok) {
+            await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
+          }
         }
       }
     } catch (e) {
