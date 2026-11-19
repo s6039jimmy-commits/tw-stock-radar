@@ -170,56 +170,21 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
     }
   }
 
-  // 3. 自動識別全台股股票名稱或代碼 (沛爾生醫 6949, 台積電 2330, 等 2000+ 檔)
+  // 3. 自動識別個股代碼或標的（輔助獲取最新行情提供給 AI 參考，不作任何硬性限制攔截）
   const resolved = await resolveStock(cleanQuery);
   let detectedSymbol = resolved?.symbol || null;
   let stockName = resolved?.name || '';
 
-  // 判斷是否為「大盤明日多空預測 / 漲跌走勢 / 整體盤勢研判 / 消化時程」（如「明天漲嗎」、「明日台股漲跌預估」、「明天大盤怎麼看」、「何時會消化完開始長」、「大概給我一個時間區間」）
-  const isMarketForecastQuery = /(明天|明日|下週|下周|下週一|下周一).*(漲|長|跌|走勢|大盤|盤勢|多空|預估|預測|怎麼看|如何|行情)|(明天|明日|下週|下周)(會不會|是漲是跌|漲嗎|長嗎|跌嗎)|明天的盤|台股明天|明天台股/i.test(cleanQuery);
-  const isMarketGeneralQuery = /大盤|加權|指數|台股整體|整體市場|盤面/i.test(cleanQuery);
-  const isTimingOrTrendQuery = /(何時|什麼時候|多久|幾天|幾週|幾周|區間|時間|幾點|轉折|何時會|會不會).*(消化|漲|長|跌|反彈|落底|開始|好|見底|轉強)|(消化完|開始長|開始漲|消化得完嗎|整理多久)/i.test(cleanQuery);
-
-  if ((isMarketForecastQuery || isMarketGeneralQuery || isTimingOrTrendQuery) && !detectedSymbol) {
-    if (lastMentionedStock) {
-      detectedSymbol = lastMentionedStock.symbol;
-      stockName = lastMentionedStock.name;
-    } else {
-      detectedSymbol = 'IX0001';
-      stockName = '加權指數大盤';
-    }
-  }
-
-  // 是否包含股票／交易／行情關鍵字（含常見同音錯字如「長」代「漲」）
-  const hasStockKeywords = /股|盤|跌|漲|長|常|買|賣|多|空|進場|出場|停損|停利|五日線|均線|支撐|壓力|點位|加碼|減碼|套牢|解套|預測|預估|行情|etf|融資|外資|主力|籌碼|基本面|技術面|消化|洗盤|整理|打底|築底|落底|反彈|突破|回檔|回測|轉折|震盪|趨勢|量能|量縮|爆量|波段|時間區間|何時/i.test(cleanQuery);
-
-  // 代名詞接續上一話題（問題包含「它、這檔、那檔、這隻、那現在呢、何時、消化」等指涉詞時延續！）
-  const hasPronounOrFollowUp = /它|這檔|那檔|這隻|這支|這檔能|那這檔|停損設哪|什麼時候能進|那現在呢|何時|消化/i.test(cleanQuery);
-  if (!detectedSymbol && lastMentionedStock && (hasPronounOrFollowUp || isTimingOrTrendQuery)) {
+  // 若當前提問沒指定個股，但上一話題有討論個股，輔助帶入上一標的作為備用參考
+  if (!detectedSymbol && lastMentionedStock) {
     detectedSymbol = lastMentionedStock.symbol;
     stockName = lastMentionedStock.name;
   }
 
-  // 4. 精確判定意圖
-  let detectedIntent = 'CASUAL_CHAT';
-  if (detectedSymbol && detectedSymbol !== 'IX0001') {
-    detectedIntent = 'STOCK_ANALYSIS';
-  } else if (isMarketForecastQuery || isTimingOrTrendQuery) {
-    detectedIntent = 'MARKET_FORECAST';
-  } else if (isMarketGeneralQuery || detectedSymbol === 'IX0001') {
-    detectedIntent = 'MARKET_ANALYSIS';
-  } else if (hasStockKeywords) {
-    detectedIntent = 'STOCK_GENERAL';
-  } else {
-    detectedIntent = 'CASUAL_CHAT'; // 僅在完全毫無投資交易意味（如純百家樂、生活笑話）時判定為閒聊
-  }
-
-  const isCasual = (detectedIntent === 'CASUAL_CHAT');
-
+  // 取得即時個股行情數據（若有識別到個股）
   let quoteInfo = '';
   let currentQuote = null;
-  // 只有在非閒聊且有目標股票時，才抓取個股報價
-  if (!isCasual && detectedSymbol) {
+  if (detectedSymbol && detectedSymbol !== 'IX0001') {
     try {
       currentQuote = await getQuote(detectedSymbol);
       if (currentQuote) {
@@ -235,29 +200,24 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
     }
   }
 
-  // 取得大盤數據（僅在股票/大盤意圖時注入，日常閒聊絕對不注入！）
+  // 取得大盤數據（常駐提供給 AI 作為大環境點位背景）
   let marketInfo = '';
   let mPrice = 0;
-  if (!isCasual) {
-    try {
-      const marketQuote = await getQuote('IX0001');
-      if (marketQuote) {
-        mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
-        const mChange = parseFloat(marketQuote.change || 0);
-        const mChangePct = parseFloat(marketQuote.changePercent || 0);
-        const mSign = mChange >= 0 ? '+' : '';
-        const mHigh = marketQuote.highPrice || mPrice;
-        marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
-      }
-    } catch (e) {
-      // 忽略大盤獲取失敗
+  try {
+    const marketQuote = await getQuote('IX0001');
+    if (marketQuote) {
+      mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
+      const mChange = parseFloat(marketQuote.change || 0);
+      const mChangePct = parseFloat(marketQuote.changePercent || 0);
+      const mSign = mChange >= 0 ? '+' : '';
+      const mHigh = marketQuote.highPrice || mPrice;
+      marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
     }
+  } catch (e) {
+    // 忽略大盤獲取失敗
   }
 
-  // 歷史話題（閒聊時不要注入上一輪股票歷史，避免污染干擾；投資問題一律注入對話脈絡）
-  const effectiveHistory = isCasual ? '' : historyContext;
-
-  // 5. AI 分析生成回答 (無死板公文模板，讓操盤手以真人自然口吻回答)
+  // 4. AI 智慧分析生成回答（完全廢除人工死規則，由 Gemini 幾千億參數大腦自行理解語意與意圖！）
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -268,30 +228,34 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
 
       const prompt = `你是 LINE 群組裡跟好友日常互動的「財神熊」（資深台股老操盤手）。
 群組朋友提問：「${cleanQuery}」
-系統判定提問意圖：${detectedIntent}
-${effectiveHistory}
+${historyContext}
 ${marketInfo}
 ${quoteInfo}
 
-【財神熊 核心人設與最高行為守則】：
+【角色人設與最高行為守則】：
+你是一位在台灣股市打滾多年、實戰經驗豐富的資深老操盤手「財神熊」。
 你講話像一位真人在 LINE 群組裡跟兄弟打字的老手：乾脆俐落、接地氣、有話直說，但面對朋友認真請教投資行情時【態度極度專業、認真、給出實質見解】！
 
-❌【全域絕對死罪禁令（違反直接重構）】：
-1. 嚴禁任何冷嘲熱諷、酸言酸語、消極擺爛推託！
-   嚴禁說出任何類似「去問神明」、「神仙才知道」、「去夏威夷喝香檳」、「我不算命」、「算命師」、「少問廢話」、「自己去算」等諷刺甩鍋言論！
-2. 面對預估時間（如「何時消化完開始漲」、「大概給個時間區間」）：
-   老手都知道市場沒有絕對百分之百，但資深老操盤手一定會根據「技術面時間波、量價慣性、均線乖離與扣抵」給出具體且負責任的【統計時間區間（例如：通常約需 5~8 個交易日 / 1~2 週的時間打底消化）】以及【轉折確認的關鍵指標（例如：1. 成交量萎縮至低點窒息量；2. 帶量長紅重回 5 日線）】，絕不迴避問題！
-3. 嚴禁客服機械開場白（如「老闆您好」、「投資有風險」等廢話）。
-4. 嚴禁分條列點寫出生硬的「明日多空定調：」、「盤面現況：」、「操作建議：」等公文標題！直接用真人老操盤手的自然語氣打字回覆。
+【請由你自行判斷朋友提問的語意，精準分流回覆】：
 
-【針對不同意圖的回覆指引】：
-【若為 CASUAL_CHAT（純生活瑣事 / 百家樂 / 賭博 / 幽默打屁）】
-👉 這必須是「100% 毫無投資、財經、股票、漲跌意味」的純生活話題！用幽默自然老友口吻回 1~2 句（約 20~40 字以內），絕不硬塞股票公文！
+情境 A【只要帶有任何股市、投資、行情、漲跌、技術分析、買賣、時程相關語意】
+（不論文字多簡短、不論是否有錯別字、即使使用隱喻俚語，例如：「開始長」、「要蹲多久」、「車開了嗎」、「被主力甩轎」、「還能追嗎」、「會破底嗎」、「何時消化完」、「套牢怎麼辦」）：
+👉 一律判定為認真的行情討論，給予專業、精闢且客觀的判斷（約 60~120 字）！
+👉 若問走勢多空：直接給出多空方向定調、關鍵支撐防守價與 1 句核心理由。
+👉 若問時間或時程（如「何時消化完」、「大概多久」）：老手都知道沒有絕對，但資深操盤手會依據「技術面時間波（通常需 5~8 個交易日 / 1~2 週的時間打底消化）」與「轉折確認訊號（1. 成交量萎縮至低點窒息量；2. 帶量長紅重回 5 日線）」給出具體且負責任的技術區間與觀察重點！
+👉 ❌【最高禁令】：
+  1. 嚴禁任何冷嘲熱諷、酸言酸語、消極擺爛推託！
+     嚴禁說出任何類似「去問神明」、「神仙才知道」、「去夏威夷喝香檳」、「我不算命」、「算命師」、「少問廢話」、「自己去算」等諷刺甩鍋言論！
+  2. 嚴禁分條列點寫出生硬的「明日多空定調：」、「盤面現況：」、「操作建議：」等公文標題！直接用真人老操盤手的自然語氣打字回覆。
 
-【若為 股票/大盤/行情分析/時間預估（STOCK_ANALYSIS / MARKET_FORECAST / MARKET_ANALYSIS / STOCK_GENERAL）】
-👉 認真站在老操盤手角度給予實質判斷（約 60~120 字）：
-  - 若問特定股票或大盤走勢：直接給出多空方向、關鍵支撐防守價與 1 句核心理由。
-  - 若問消化賣壓時間或反彈時程：給出合理的技術面時間波區間（如 5~8 天或 1~2 週），並提醒要看「量縮落底」還是「長紅突破」的訊號來確認！`;
+情境 B【只有在 100% 完全無關股市投資的純生活瑣事】
+（例如：純問「午餐吃什麼」、「今天天氣好嗎」、「有人靠百家致富的麼」、「百家樂賭博好玩嗎」、「講個笑話」、「早安」）：
+👉 這不是問股票！用幽默自然的老朋友口氣回 1~2 句（約 20~40 字以內）。
+👉 ❌【最高禁令】：絕對嚴禁提及大盤、加權指數、成交量或任何股市點位數據！話題只針對朋友問的生活話題幽默回覆，回答完俐落結束，絕不多扯半句股市！
+
+【共通規範】：
+1. 嚴禁任何客服機械開場白（如「老闆您好」、「投資有風險」等廢話）。
+2. 自然對話、真人打字，不套死板公版！`;
 
       let text = '';
       try {
