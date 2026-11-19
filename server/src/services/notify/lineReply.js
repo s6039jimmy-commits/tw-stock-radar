@@ -175,37 +175,43 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
   let detectedSymbol = resolved?.symbol || null;
   let stockName = resolved?.name || '';
 
-  // 判斷是否為「大盤明日多空預測 / 漲跌走勢 / 整體盤勢研判」（如「明天漲嗎」、「明日台股漲跌預估」、「明天大盤怎麼看」、「明天會漲嗎」、「大盤還能追嗎」）
-  const isMarketForecastQuery = /(明天|明日|下週一|下周一).*(漲|跌|走勢|大盤|盤勢|多空|預估|預測|怎麼看|如何|行情)|(明天|明日|下週一|下周一)(會不會|是漲是跌|漲嗎|跌嗎)|明天的盤|台股明天|明天台股/i.test(cleanQuery);
+  // 判斷是否為「大盤明日多空預測 / 漲跌走勢 / 整體盤勢研判 / 消化時程」（如「明天漲嗎」、「明日台股漲跌預估」、「明天大盤怎麼看」、「何時會消化完開始長」、「大概給我一個時間區間」）
+  const isMarketForecastQuery = /(明天|明日|下週|下周|下週一|下周一).*(漲|長|跌|走勢|大盤|盤勢|多空|預估|預測|怎麼看|如何|行情)|(明天|明日|下週|下周)(會不會|是漲是跌|漲嗎|長嗎|跌嗎)|明天的盤|台股明天|明天台股/i.test(cleanQuery);
   const isMarketGeneralQuery = /大盤|加權|指數|台股整體|整體市場|盤面/i.test(cleanQuery);
+  const isTimingOrTrendQuery = /(何時|什麼時候|多久|幾天|幾週|幾周|區間|時間|幾點|轉折|何時會|會不會).*(消化|漲|長|跌|反彈|落底|開始|好|見底|轉強)|(消化完|開始長|開始漲|消化得完嗎|整理多久)/i.test(cleanQuery);
 
-  if ((isMarketForecastQuery || isMarketGeneralQuery) && !detectedSymbol) {
-    detectedSymbol = 'IX0001';
-    stockName = '加權指數大盤';
+  if ((isMarketForecastQuery || isMarketGeneralQuery || isTimingOrTrendQuery) && !detectedSymbol) {
+    if (lastMentionedStock) {
+      detectedSymbol = lastMentionedStock.symbol;
+      stockName = lastMentionedStock.name;
+    } else {
+      detectedSymbol = 'IX0001';
+      stockName = '加權指數大盤';
+    }
   }
 
-  // 是否包含股票／交易關鍵字
-  const hasStockKeywords = /股|盤|跌|漲|買|賣|多|空|進場|出場|停損|停利|五日線|均線|支撐|壓力|點位|加碼|減碼|套牢|解套|預測|預估|行情|etf|融資|外資|主力|籌碼|基本面/i.test(cleanQuery);
+  // 是否包含股票／交易／行情關鍵字（含常見同音錯字如「長」代「漲」）
+  const hasStockKeywords = /股|盤|跌|漲|長|常|買|賣|多|空|進場|出場|停損|停利|五日線|均線|支撐|壓力|點位|加碼|減碼|套牢|解套|預測|預估|行情|etf|融資|外資|主力|籌碼|基本面|技術面|消化|洗盤|整理|打底|築底|落底|反彈|突破|回檔|回測|轉折|震盪|趨勢|量能|量縮|爆量|波段|時間區間|何時/i.test(cleanQuery);
 
-  // 代名詞接續上一話題（僅在問題包含「它、這檔、那檔、這隻、那現在呢」等明確指涉詞時才延續！）
-  const hasPronounOrFollowUp = /它|這檔|那檔|這隻|這支|這檔能|那這檔|停損設哪|什麼時候能進|那現在呢/i.test(cleanQuery);
-  if (!detectedSymbol && lastMentionedStock && hasPronounOrFollowUp) {
+  // 代名詞接續上一話題（問題包含「它、這檔、那檔、這隻、那現在呢、何時、消化」等指涉詞時延續！）
+  const hasPronounOrFollowUp = /它|這檔|那檔|這隻|這支|這檔能|那這檔|停損設哪|什麼時候能進|那現在呢|何時|消化/i.test(cleanQuery);
+  if (!detectedSymbol && lastMentionedStock && (hasPronounOrFollowUp || isTimingOrTrendQuery)) {
     detectedSymbol = lastMentionedStock.symbol;
     stockName = lastMentionedStock.name;
   }
 
-  // 4. 精確判定意圖（預設：若完全沒提到股票代碼、大盤或交易詞彙，一律是日常閒聊 CASUAL_CHAT！）
+  // 4. 精確判定意圖
   let detectedIntent = 'CASUAL_CHAT';
   if (detectedSymbol && detectedSymbol !== 'IX0001') {
     detectedIntent = 'STOCK_ANALYSIS';
-  } else if (isMarketForecastQuery) {
+  } else if (isMarketForecastQuery || isTimingOrTrendQuery) {
     detectedIntent = 'MARKET_FORECAST';
   } else if (isMarketGeneralQuery || detectedSymbol === 'IX0001') {
     detectedIntent = 'MARKET_ANALYSIS';
   } else if (hasStockKeywords) {
     detectedIntent = 'STOCK_GENERAL';
   } else {
-    detectedIntent = 'CASUAL_CHAT'; // 百家樂、生活瑣事、開玩笑、打招呼，一律日常閒聊！
+    detectedIntent = 'CASUAL_CHAT'; // 僅在完全毫無投資交易意味（如純百家樂、生活笑話）時判定為閒聊
   }
 
   const isCasual = (detectedIntent === 'CASUAL_CHAT');
@@ -248,7 +254,7 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
     }
   }
 
-  // 歷史話題（閒聊時不要注入上一輪股票歷史，避免污染干擾！）
+  // 歷史話題（閒聊時不要注入上一輪股票歷史，避免污染干擾；投資問題一律注入對話脈絡）
   const effectiveHistory = isCasual ? '' : historyContext;
 
   // 5. AI 分析生成回答 (無死板公文模板，讓操盤手以真人自然口吻回答)
@@ -267,35 +273,25 @@ ${effectiveHistory}
 ${marketInfo}
 ${quoteInfo}
 
-【角色風格】：
-你講話像一位真人在 LINE 群組裡跟兄弟打字的老手：乾脆俐落、幽默接地氣、絕不套用死板公文模板！
+【財神熊 核心人設與最高行為守則】：
+你講話像一位真人在 LINE 群組裡跟兄弟打字的老手：乾脆俐落、接地氣、有話直說，但面對朋友認真請教投資行情時【態度極度專業、認真、給出實質見解】！
 
-【針對不同意圖的回覆規則（嚴格執行！）】：
+❌【全域絕對死罪禁令（違反直接重構）】：
+1. 嚴禁任何冷嘲熱諷、酸言酸語、消極擺爛推託！
+   嚴禁說出任何類似「去問神明」、「神仙才知道」、「去夏威夷喝香檳」、「我不算命」、「算命師」、「少問廢話」、「自己去算」等諷刺甩鍋言論！
+2. 面對預估時間（如「何時消化完開始漲」、「大概給個時間區間」）：
+   老手都知道市場沒有絕對百分之百，但資深老操盤手一定會根據「技術面時間波、量價慣性、均線乖離與扣抵」給出具體且負責任的【統計時間區間（例如：通常約需 5~8 個交易日 / 1~2 週的時間打底消化）】以及【轉折確認的關鍵指標（例如：1. 成交量萎縮至低點窒息量；2. 帶量長紅重回 5 日線）】，絕不迴避問題！
+3. 嚴禁客服機械開場白（如「老闆您好」、「投資有風險」等廢話）。
+4. 嚴禁分條列點寫出生硬的「明日多空定調：」、「盤面現況：」、「操作建議：」等公文標題！直接用真人老操盤手的自然語氣打字回覆。
 
-【意圖一：CASUAL_CHAT（日常閒聊 / 百家樂 / 賭博 / 生活瑣事 / 打屁開玩笑）】
-👉 這不是問股票！用真人老友口吻，幽默調侃吐槽或開玩笑回覆 1~2 句話（約 20~40 字以內）。
-👉 ❌【最高禁令】：
-  1. 絕對嚴禁主動提及大盤點位、加權指數、防守價或股票代碼！
-  2. 絕對嚴禁在回答後面硬塞「明日多空定調」、「盤面現況」或「操作建議」！
-  3. 說完該回答的閒聊就俐落結束，多扯半句股票都算違規！
-  例如朋友問「有人靠百家致富的麼」：
-  回：「百家樂致富的永遠只有開賭場的老闆！進去都是給人送錢，想賺錢還是專心看盤做趨勢卡實在。」
+【針對不同意圖的回覆指引】：
+【若為 CASUAL_CHAT（純生活瑣事 / 百家樂 / 賭博 / 幽默打屁）】
+👉 這必須是「100% 毫無投資、財經、股票、漲跌意味」的純生活話題！用幽默自然老友口吻回 1~2 句（約 20~40 字以內），絕不硬塞股票公文！
 
-【意圖二：STOCK_ANALYSIS（問具體個股 / 點位 / 停損）】
-👉 像真人老手自然打字（約 60~100 字），直接給出明確定調【建議買進/加碼】或【不建議碰/逢高減碼】，並附上關鍵防守價與 1 句核心理由。
-👉 嚴禁客服機械標題與多餘廢話。
-
-【意圖三：MARKET_FORECAST 或 MARKET_ANALYSIS 或 STOCK_GENERAL（問大盤明日漲跌 / 走勢 / 明天怎麼看）】
-👉 這是認真問盤！像真人老操盤手自然打字（約 60~100 字），將多空定調、關鍵支撐與應對建議融合成一段自然流暢的大白話，講完重點即停！
-👉 ❌【最高禁令】：
-  1. 絕對嚴禁說「我不算命」、「我不是算命師」、「少問這種廢話」、「每天問我也救不了你的帳戶」、「記性差」等任何推託或人身攻擊！
-  2. 絕對嚴禁分條列點寫出生硬的「明日多空定調：」、「盤面現況：」、「操作建議：」等公文標題！直接用自然口吻說出觀點即可。
-  例如朋友問「明天漲嗎」：
-  回：「明天我看【高檔震盪偏多】。加權今天收在 ${mPrice || 40194} 點，歷史高位難免震盪，短線防守先看 39800 點整數關卡。手上持股只要沒破五日均線就安心續抱，不用急著追高，等壓回均線有守再找買點！」
-
-【共通規範】：
-1. 嚴禁任何客服機械開場白（如「老闆您好」、「投資有風險」等廢話）。
-2. 自然對話、真人打字，不套死板公版！`;
+【若為 股票/大盤/行情分析/時間預估（STOCK_ANALYSIS / MARKET_FORECAST / MARKET_ANALYSIS / STOCK_GENERAL）】
+👉 認真站在老操盤手角度給予實質判斷（約 60~120 字）：
+  - 若問特定股票或大盤走勢：直接給出多空方向、關鍵支撐防守價與 1 句核心理由。
+  - 若問消化賣壓時間或反彈時程：給出合理的技術面時間波區間（如 5~8 天或 1~2 週），並提醒要看「量縮落底」還是「長紅突破」的訊號來確認！`;
 
       let text = '';
       try {
@@ -361,7 +357,12 @@ ${quoteInfo}
     return '哈哈，少跟我打嘴砲，專心賺錢或好好放鬆啦！';
   }
 
-  // 7. 一般提問（現在買什麼、推薦、大盤）
+  // 7. 一般提問（現在買什麼、推薦、大盤、消化時程）
+  if (cleanQuery.includes('消化') || cleanQuery.includes('長') || cleanQuery.includes('區間') || cleanQuery.includes('時間') || cleanQuery.includes('何時')) {
+    return `目前盤面處於回檔洗浮額階段，依照籌碼沉澱規律，這波賣壓消化通常需要 5 到 8 個交易日（約 1~2 週）。
+關鍵觀察兩個訊號：第一是成交量必須量縮至波段窒息量；第二是站回 5 日線且出現帶量長紅確認落底。在訊號確認前先保持耐心、防守為上！`;
+  }
+
   if (cleanQuery.includes('買') || cleanQuery.includes('推薦') || cleanQuery.includes('選') || cleanQuery.includes('大盤') || cleanQuery.includes('看')) {
     return `大盤這幾天權值股帶頭震盪回檔，投機飆股很容易被洗破線，【明確不建議追高投機股】！
 現在想進場，【強烈建議分批買抗震高息或市值型 ETF】（像 00919、0056、006208），跌破五日線分批定額買最安全，手上記得留 4 成現金！`;
