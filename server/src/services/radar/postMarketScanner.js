@@ -4,6 +4,7 @@ import { fetchLatestStockNews } from '../news/cnyesNews.js';
 import { sendHTML } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isTradingDay, getMarketHolidayAlerts } from '../../utils/helpers.js';
+import { LINE_CHANNEL_ID } from '../../config/index.js';
 
 function generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent, price56, change56, price6208, change6208 }) {
   const cPct = parseFloat(tseChangePercent) || 0;
@@ -41,15 +42,15 @@ function generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent, pr
 export const runPostMarketScan = async () => {
   if (!isTradingDay()) {
     logger.info('PostMarket', '🛑 今日為台股休市日／連假，不執行 14:05 推播');
-    return;
+    return false;
   }
 
   logger.info('PostMarket', '📊 執行 14:05 大盤明日漲跌預測推播...');
 
-  const hasTarget = process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
+  const hasTarget = LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
   if (!hasTarget) {
     logger.warn('PostMarket', '未設定推播目標 (LINE 或 TG)，跳過 14:05 推播');
-    return;
+    return false;
   }
 
   const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' });

@@ -4,6 +4,7 @@ import { fetchLatestStockNews } from '../news/cnyesNews.js';
 import { sendHTML } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isTradingDay } from '../../utils/helpers.js';
+import { LINE_CHANNEL_ID } from '../../config/index.js';
 
 function generateOpenMarketRuleBased({ tsePrice, tseChange, tseChangePercent, tsmcPrice, tsmcChange }) {
   const cPct = parseFloat(tseChangePercent) || 0;
@@ -45,7 +46,7 @@ export const runOpenMarketScan = async (force = false) => {
 
   logger.info('OpenMarket', '🔔 執行 09:00 台股開盤戰況速報掃描...');
 
-  const hasTarget = process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
+  const hasTarget = LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
   if (!hasTarget) {
     logger.warn('OpenMarket', '未設定推播目標 (LINE 或 TG)，跳過 09:00 開盤快報');
     return false;

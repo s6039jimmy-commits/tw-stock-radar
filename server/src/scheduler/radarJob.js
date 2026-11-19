@@ -30,7 +30,7 @@ export const runCustomScan = async () => {
   }
 };
 
-export { runPreMarketScan, runOpenMarketScan };
+export { runPreMarketScan, runOpenMarketScan, runMiddayScan };
 
 export const runNightScan = async () => {
   await scanNightSession();

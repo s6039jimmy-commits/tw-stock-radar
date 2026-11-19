@@ -22,6 +22,10 @@ export const LINE_CHANNEL_ID = process.env.LINE_CHANNEL_ID || '2012651187';
 export const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || 'a6841f1c4a39a3d52fb48b55a364ac16';
 export const LINE_GROUP_ID = process.env.LINE_GROUP_ID || 'Ccd0cb00fc7b0c603fc42e3609d65e556';
 
+process.env.LINE_CHANNEL_ID = LINE_CHANNEL_ID;
+process.env.LINE_CHANNEL_SECRET = LINE_CHANNEL_SECRET;
+process.env.LINE_GROUP_ID = LINE_GROUP_ID;
+
 // 交易參數 (預設值)
 export const AI_DANGER_LEVEL_THRESHOLD = parseInt(process.env.AI_DANGER_LEVEL_THRESHOLD || '4');
 export const PRE_MARKET_SCAN_TIME = process.env.PRE_MARKET_SCAN_TIME || '08:45';

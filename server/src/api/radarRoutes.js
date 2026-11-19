@@ -1,8 +1,18 @@
 import { Router } from 'express';
 import { getRadarSignals } from '../db/database.js';
-import { runBlueChipScan, runMomentumScan, runCustomScan } from '../scheduler/radarJob.js';
+import { runBlueChipScan, runMomentumScan, runCustomScan, runMiddayScan, runPostMarketStockScan } from '../scheduler/radarJob.js';
 
 const router = Router();
+
+router.post('/trigger-midday', async (req, res) => {
+  const ok = await runMiddayScan(true);
+  res.json({ success: ok, message: 'Midday report triggered' });
+});
+
+router.post('/trigger-postmarket', async (req, res) => {
+  const ok = await runPostMarketStockScan();
+  res.json({ success: ok, message: 'Post-market report triggered' });
+});
 
 router.get('/signals', async (req, res) => {
   const type = req.query.type;

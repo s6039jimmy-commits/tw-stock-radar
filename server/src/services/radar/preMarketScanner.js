@@ -4,6 +4,7 @@ import { fetchLatestStockNews } from '../news/cnyesNews.js';
 import { sendHTML } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isTradingDay } from '../../utils/helpers.js';
+import { LINE_CHANNEL_ID } from '../../config/index.js';
 import YahooFinance from 'yahoo-finance2';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -45,7 +46,7 @@ export const runPreMarketScan = async (force = false) => {
 
   logger.info('PreMarket', '🌅 執行 08:40 盤前試撮與開盤預估快報掃描...');
 
-  const hasTarget = process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
+  const hasTarget = LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
   if (!hasTarget) {
     logger.warn('PreMarket', '未設定推播目標 (LINE 或 TG)，跳過 08:40 推播');
     return false;

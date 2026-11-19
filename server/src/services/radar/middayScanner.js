@@ -4,6 +4,7 @@ import { fetchLatestStockNews } from '../news/cnyesNews.js';
 import { sendHTML } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isTradingDay } from '../../utils/helpers.js';
+import { LINE_CHANNEL_ID, LINE_GROUP_ID } from '../../config/index.js';
 
 function generateMiddayRuleBased({ tsePrice, tseChange, tseChangePercent, currentValBillion, estValBillion, tsmcPrice, tsmcChange }) {
   const cPct = parseFloat(tseChangePercent) || 0;
@@ -41,7 +42,7 @@ export const runMiddayScan = async (force = false) => {
 
   logger.info('MiddayScan', '🍱 執行 12:00 午盤大盤戰況快報掃描...');
 
-  const hasTarget = process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
+  const hasTarget = LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ID || process.env.LINE_CHANNEL_ACCESS_TOKEN || (process.env.ENABLE_TELEGRAM === 'true' && process.env.TELEGRAM_CHAT_ID);
   if (!hasTarget) {
     logger.warn('MiddayScan', '未設定推播目標 (LINE 或 TG)，跳過 12:00 午盤快報');
     return false;
