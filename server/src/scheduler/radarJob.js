@@ -64,6 +64,9 @@ export const runPostMarketStockScan = async () => {
   }
 };
 
+let isPreMarketRunning = false;
+let isPostMarketRunning = false;
+
 export const startRadarJobs = () => {
   const options = { timezone: 'Asia/Taipei' };
 
@@ -84,9 +87,25 @@ export const startRadarJobs = () => {
   cron.schedule('40 8 * * 1-5', async () => {
     if (isTradingDay()) {
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      const ok = await runPreMarketScan();
-      if (ok) {
-        await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
+      const sent = await getSetting(`SENT_PRE_MARKET_${todayDate}`);
+      if (sent || isPreMarketRunning) {
+        logger.info('Scheduler', '今日 08:40 盤前快報已發送或正在執行中，跳過重複觸發');
+        return;
+      }
+      isPreMarketRunning = true;
+      await setSetting(`SENT_PRE_MARKET_${todayDate}`, 'SENDING');
+      try {
+        const ok = await runPreMarketScan();
+        if (ok) {
+          await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
+        } else {
+          await setSetting(`SENT_PRE_MARKET_${todayDate}`, '');
+        }
+      } catch (err) {
+        logger.error('Scheduler', '08:40 盤前推播異常', err);
+        await setSetting(`SENT_PRE_MARKET_${todayDate}`, '');
+      } finally {
+        isPreMarketRunning = false;
       }
     } else {
       logger.info('Scheduler', '今日為台股休市日／連假，跳過 08:40 盤前快報');
@@ -103,16 +122,32 @@ export const startRadarJobs = () => {
   cron.schedule('5 14 * * 1-5', async () => {
     if (isTradingDay()) {
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
-      const ok = await runPostMarketStockScan();
-      if (ok) {
-        await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
+      const sent = await getSetting(`SENT_POST_MARKET_${todayDate}`);
+      if (sent || isPostMarketRunning) {
+        logger.info('Scheduler', '今日 14:05 盤後快報已發送或正在執行中，跳過重複觸發');
+        return;
+      }
+      isPostMarketRunning = true;
+      await setSetting(`SENT_POST_MARKET_${todayDate}`, 'SENDING');
+      try {
+        const ok = await runPostMarketStockScan();
+        if (ok) {
+          await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
+        } else {
+          await setSetting(`SENT_POST_MARKET_${todayDate}`, '');
+        }
+      } catch (err) {
+        logger.error('Scheduler', '14:05 盤後推播異常', err);
+        await setSetting(`SENT_POST_MARKET_${todayDate}`, '');
+      } finally {
+        isPostMarketRunning = false;
       }
     } else {
       logger.info('Scheduler', '今日為台股休市日／連假，跳过 14:05 大盤推播');
     }
   }, options);
 
-  // 🛡️ 智慧開機補發檢查：若伺服器重啟剛好卡在整點幾十秒而錯過整點觸發，自動補發
+  // 🛡️ 智慧開機補發檢查：避開整點，僅在錯過時間後才啟動補發（防與正排程在同一分鐘併發重覆送出）
   const runCatchupChecks = async () => {
     try {
       if (!isTradingDay()) return;
@@ -128,26 +163,48 @@ export const startRadarJobs = () => {
       const totalMinutes = hour * 60 + minute;
       const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(now);
 
-      // 1. 08:40 盤前補發 (08:40 ~ 09:01 間若未發送自動補發)
-      if (totalMinutes >= 8 * 60 + 40 && totalMinutes <= 9 * 60 + 1) {
+      // 1. 08:40 盤前補發：僅在 08:42 ~ 09:01 間檢查（延後 2 分鐘，確保 08:40 正排程完成而不重疊）
+      if (totalMinutes >= 8 * 60 + 42 && totalMinutes <= 9 * 60 + 1) {
         const sent = await getSetting(`SENT_PRE_MARKET_${todayDate}`);
-        if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到處於 08:40 區間且尚未發送，自動補發盤前快報...');
-          const ok = await runPreMarketScan();
-          if (ok) {
-            await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
+        if (!sent && !isPreMarketRunning) {
+          logger.info('Scheduler', '🔄 檢測到處於 08:40 補發區間且尚未發送，自動補發盤前快報...');
+          isPreMarketRunning = true;
+          await setSetting(`SENT_PRE_MARKET_${todayDate}`, 'SENDING');
+          try {
+            const ok = await runPreMarketScan();
+            if (ok) {
+              await setSetting(`SENT_PRE_MARKET_${todayDate}`, '1');
+            } else {
+              await setSetting(`SENT_PRE_MARKET_${todayDate}`, '');
+            }
+          } catch (err) {
+            logger.error('Scheduler', '補發 08:40 異常', err);
+            await setSetting(`SENT_PRE_MARKET_${todayDate}`, '');
+          } finally {
+            isPreMarketRunning = false;
           }
         }
       }
 
-      // 4. 14:05 盤後補發 (14:05 ~ 15:00 間若未發送自動補發)
-      if (totalMinutes >= 14 * 60 + 5 && totalMinutes <= 15 * 60) {
+      // 4. 14:05 盤後補發：僅在 14:07 ~ 15:00 間檢查（延後 2 分鐘，確保 14:05 正排程完成而不重疊）
+      if (totalMinutes >= 14 * 60 + 7 && totalMinutes <= 15 * 60) {
         const sent = await getSetting(`SENT_POST_MARKET_${todayDate}`);
-        if (!sent) {
-          logger.info('Scheduler', '🔄 檢測到處於 14:05 區間且尚未發送，自動補發盤後快報...');
-          const ok = await runPostMarketStockScan();
-          if (ok) {
-            await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
+        if (!sent && !isPostMarketRunning) {
+          logger.info('Scheduler', '🔄 檢測到處於 14:05 補發區間且尚未發送，自動補發盤後快報...');
+          isPostMarketRunning = true;
+          await setSetting(`SENT_POST_MARKET_${todayDate}`, 'SENDING');
+          try {
+            const ok = await runPostMarketStockScan();
+            if (ok) {
+              await setSetting(`SENT_POST_MARKET_${todayDate}`, '1');
+            } else {
+              await setSetting(`SENT_POST_MARKET_${todayDate}`, '');
+            }
+          } catch (err) {
+            logger.error('Scheduler', '補發 14:05 異常', err);
+            await setSetting(`SENT_POST_MARKET_${todayDate}`, '');
+          } finally {
+            isPostMarketRunning = false;
           }
         }
       }
