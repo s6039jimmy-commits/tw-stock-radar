@@ -264,7 +264,7 @@ ${quoteInfo}
       } catch (geminiError) {
         try {
           const modelFallback = genAI.getGenerativeModel({
-            model: 'gemini-3.8-flash',
+            model: 'gemini-2.5-flash',
             generationConfig: { temperature: 0.5 }
           });
           const resFallback = await modelFallback.generateContent(prompt);
@@ -283,42 +283,41 @@ ${quoteInfo}
     }
   }
 
-  // 5. 本地高智商量化引擎 (自然對話流、無死板標題、2~4句講完重點)
+  // 5. 本地高智商量化引擎 (僅在有真實有效報價且股價大於 0 時兜底，嚴防無效股票或 0 元報價產生笑話)
   if (detectedSymbol && currentQuote) {
     const close = currentQuote.closePrice || currentQuote.lastPrice || 0;
-    const change = currentQuote.change || 0;
-    const changePct = parseFloat(currentQuote.changePercent || 0);
-    const sign = change >= 0 ? '+' : '';
-    const low = currentQuote.lowPrice || close;
-    const high = currentQuote.highPrice || close;
-    const pivot = (high + low + close) / 3;
-    const sup1 = (2 * pivot - high).toFixed(1);
-    const volume = currentQuote.total?.tradeVolume ? `，成交量 ${(currentQuote.total.tradeVolume / 1000).toFixed(1)}k 張` : '';
+    if (close > 0) {
+      const change = currentQuote.change || 0;
+      const changePct = parseFloat(currentQuote.changePercent || 0);
+      const sign = change >= 0 ? '+' : '';
+      const low = currentQuote.lowPrice || close;
+      const high = currentQuote.highPrice || close;
+      const pivot = (high + low + close) / 3;
+      const sup1 = (2 * pivot - high).toFixed(1);
+      const volume = currentQuote.total?.tradeVolume ? `，成交量 ${(currentQuote.total.tradeVolume / 1000).toFixed(1)}k 張` : '';
 
-    if (changePct <= -3.5) {
-      return `${detectedSymbol} ${stockName || detectedSymbol} 今天重挫 ${sign}${changePct.toFixed(2)}% 收在 ${close} 元${volume}，破線賣壓非常沉重。
+      if (changePct <= -3.5) {
+        return `${detectedSymbol} ${stockName || detectedSymbol} 今天重挫 ${sign}${changePct.toFixed(2)}% 收在 ${close} 元${volume}，破線賣壓非常沉重。
 明確【不建議進場接刀】！短線下方支撐先看 ${sup1} 元；手上有持股的建議趁反彈減碼出清，若跌破今日低點 ${low.toFixed(1)} 元務必嚴格停損，千萬別盲目凹單！`;
-    } else if (changePct <= -1.0) {
-      return `${detectedSymbol} ${stockName || detectedSymbol} 今天回檔 ${sign}${changePct.toFixed(2)}% 收 ${close} 元${volume}，技術面回測均線整理。
+      } else if (changePct <= -1.0) {
+        return `${detectedSymbol} ${stockName || detectedSymbol} 今天回檔 ${sign}${changePct.toFixed(2)}% 收 ${close} 元${volume}，技術面回測均線整理。
 【暫不建議追價，先等回測站穩】！下方防守看 ${sup1} 元，有守再考慮分批低接；已有持股者續抱即可，跌破 ${low.toFixed(1)} 元再考慮減碼。`;
-    } else if (changePct >= 3.5) {
-      return `${detectedSymbol} ${stockName || detectedSymbol} 今天帶量強攻 ${sign}${changePct.toFixed(2)}% 衝到 ${close} 元${volume}，多方攻擊氣勢很強！
+      } else if (changePct >= 3.5) {
+        return `${detectedSymbol} ${stockName || detectedSymbol} 今天帶量強攻 ${sign}${changePct.toFixed(2)}% 衝到 ${close} 元${volume}，多方攻擊氣勢很強！
 【建議順勢加碼 / 偏多操作】！回測支撐 ${sup1} 元不破都是好買點；持有者建議抱緊讓獲利奔跑，將停利點設在 ${low.toFixed(1)} 元。`;
-    } else if (changePct >= 0.5) {
-      return `${detectedSymbol} ${stockName || detectedSymbol} 今天逆勢抗跌 ${sign}${changePct.toFixed(2)}% 收 ${close} 元${volume}，底部逐步墊高、守穩支撐。
+      } else if (changePct >= 0.5) {
+        return `${detectedSymbol} ${stockName || detectedSymbol} 今天逆勢抗跌 ${sign}${changePct.toFixed(2)}% 收 ${close} 元${volume}，底部逐步墊高、守穩支撐。
 【建議逢拉回分批布局】！靠近 ${sup1} 元可分批少量買進；手上有持股的續抱即可，多方防守結構完好。`;
-    } else {
-      return `${detectedSymbol} ${stockName || detectedSymbol} 目前在 ${low.toFixed(1)} ~ ${high.toFixed(1)} 元窄幅整理，收 ${close} 元${volume}，多空量縮拉鋸。
+      } else {
+        return `${detectedSymbol} ${stockName || detectedSymbol} 目前在 ${low.toFixed(1)} ~ ${high.toFixed(1)} 元窄幅整理，收 ${close} 元${volume}，多空量縮拉鋸。
 【空手不建議追，持股建議續抱】！未突破壓力前進場容易被磨損耐心，持股以 ${low.toFixed(1)} 元為防守點守住續抱即可。`;
+      }
     }
   }
 
   // 6. 生活瑣事 / 閒聊本地兜底
-  if (isCasual) {
-    if (/百家|賭|賭場|百家樂/i.test(cleanQuery)) {
-      return '百家樂致富的永遠只有開賭場的老闆！進去都是給人送錢，想賺錢還是腳踏實地看盤做趨勢比較實在。';
-    }
-    return '哈哈，少跟我打嘴砲，專心賺錢或好好放鬆啦！';
+  if (/百家|賭|賭場|百家樂/i.test(cleanQuery)) {
+    return '百家樂致富的永遠只有開賭場的老闆！進去都是給人送錢，想賺錢還是腳踏實地看盤做趨勢比較實在。';
   }
 
   // 7. 一般提問（現在買什麼、推薦、大盤、消化時程）

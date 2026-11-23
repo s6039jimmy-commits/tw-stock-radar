@@ -68,12 +68,14 @@ export const resolveStock = async (queryText) => {
 
   const clean = queryText.replace(/@\S+/g, '').trim();
 
-  // 1. 純數字代碼匹配 (例如 2330, 6949)
-  const codeMatch = clean.match(/\b\d{4,6}\b/);
-  if (codeMatch) {
-    const code = codeMatch[0];
-    const name = stockCodeMap.get(code) || code;
-    return { symbol: code, name };
+  // 1. 純數字代碼匹配：必須真正存在於台股官方清單中 (例如 2330, 6949, 0056)，嚴防把日期(1124)、點位(2000)、年份(2026)等誤判為個股代號！
+  const matches = clean.match(/\d{4,6}/g);
+  if (matches) {
+    for (const code of matches) {
+      if (stockCodeMap.has(code)) {
+        return { symbol: code, name: stockCodeMap.get(code) };
+      }
+    }
   }
 
   // 2. 名稱完全或部分匹配 (由長到短優先匹配，避免誤判)
