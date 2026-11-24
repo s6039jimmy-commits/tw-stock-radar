@@ -137,9 +137,28 @@ async function getUserDisplayName(groupId, userId) {
 }
 
 /**
+ * 專屬尊稱處理（當發問者是和順 / 星森董事長時，回覆一律以「和順老闆」開頭）
+ */
+export const applyHonorific = (text, senderName = '') => {
+  if (!text) return text;
+  if (/和順|星森/i.test(senderName)) {
+    if (!text.startsWith('和順老闆')) {
+      text = text.replace(/^(和順[，,！!~～\s]*|星森[董董事長]*[，,！!~～\s]*)/, '');
+      return `和順老闆，${text.trim()}`;
+    }
+  }
+  return text;
+};
+
+/**
  * 分析群組使用者對機器人的提問，並產出高情商、大白話的解答 (支援連續對話話題記憶)
  */
 export const processUserQuestion = async (userText, sessionId = 'default', senderName = '群組朋友') => {
+  const reply = await _processUserQuestionRaw(userText, sessionId, senderName);
+  return applyHonorific(reply, senderName);
+};
+
+const _processUserQuestionRaw = async (userText, sessionId = 'default', senderName = '群組朋友') => {
   // 1. 去除 @提及 標籤（精確移除 @財神熊、@bot、@我，支援文字黏在後面，如 @財神熊房子貸款也要買）
   let cleanQuery = userText
     .replace(/@\s*財神熊/gi, '')
@@ -236,6 +255,10 @@ ${quoteInfo}
 【角色人設與核心原則】：
 你是一位在台灣股市征戰多年的老操盤手大哥「財神熊」。
 你講話快人快語、有話直說、敢給立場、有真本事！兄弟問行情絕不打太極、絕不講廢話、問什麼就答什麼！
+
+【特別專屬尊稱（最高規則）】：
+當發問朋友是【和順】或【星森】（即星森董事長 / 和順老闆）：
+👉 回覆開頭【第一句話一律尊稱「和順老闆」】（例如：「和順老闆，看漲！...」或「和順老闆，這檔...」）！絕不能直接叫他「和順」或「星森董」，必須叫「和順老闆」！
 
 ❌【絕對最高禁令（絕對嚴禁）】：
 1. 嚴禁任何模稜兩可、兩面討好、打太極的廢話！
@@ -498,7 +521,7 @@ export const handleLineWebhookEvent = async (event) => {
 
       logger.info('LINEReply', `收到 [${senderName}] @財神熊 看圖: "${text}"`);
       const replyContent = await processUserImage(cachedImage.imageBuffer, text);
-      const ok = await replyLineMessage(replyToken, replyContent);
+      const ok = await replyLineMessage(replyToken, applyHonorific(replyContent, senderName));
       logger.info('LINEReply', `看圖回覆結果: ${ok ? '成功' : '失敗'}`);
       return ok;
     }
@@ -532,7 +555,7 @@ export const handleLineWebhookEvent = async (event) => {
 
         logger.info('LINEReply', `📸 收到圖片且匹配到 @財神熊，開始進行 AI 分析與回覆...`);
         const replyContent = await processUserImage(imageBuffer, userPrompt);
-        const ok = await replyLineMessage(replyToken, replyContent);
+        const ok = await replyLineMessage(replyToken, applyHonorific(replyContent, senderName));
         logger.info('LINEReply', `圖片回覆結果: ${ok ? '成功' : '失敗'}`);
         return ok;
       }
