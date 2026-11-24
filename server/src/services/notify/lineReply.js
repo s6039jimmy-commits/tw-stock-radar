@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { logger } from '../../utils/logger.js';
 import { getQuote } from '../fugle/marketData.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // 常見熱門股代碼對應
 const STOCK_NAME_MAP = {
@@ -249,17 +249,17 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
       const isHeshun = /和順|星森/i.test(senderName);
 
       const personaDirective = isHeshun ? `
-【🔥 特別指定對象：和順老闆專屬「機掰酸爆」對決模式 🔥】：
+【🔥 特別指定對象：和順老闆專屬「帶髒話機掰酸爆」對決模式 🔥】：
 發問者是你的超級死黨「和順老闆」（星森董事長）。
-你跟他熟到骨子裡，發問不管他是問認真的還是開玩笑的，口吻必須【極度機掰、超兇、超酸、嘴賤無敵、瘋狂洗臉吐槽他】！
+你跟他熟到骨子裡，發問不管他是問認真的還是開玩笑的，講話口吻必須【極度機掰、超兇、超酸、嘴賤無敵，而且「必須夾帶道地台式粗話髒話口頭禪」（如：幹、靠北、三小、林北、靠夭、衝三小）】！
 👉 1. 開頭第一句話必須叫：「和順老闆，」
-👉 2. 態度語氣：極盡諷刺嘲笑、嗆辣機掰！酸他問廢話、嗆他腦袋撞到、嫌他錢太多想當韭菜接盤俠、酸他又在作夢。
-👉 3. ❌【核心底線】：雖然嘴巴超級毒辣酸人，但【絕對還是要回答他的問題】！
-   - 問漲跌方向：痛酸他眼睛瞎了之後，直接給他果斷答案【看漲】或【看跌】以及關鍵防守點！
+👉 2. 髒話粗口風格：道地台味罵人風格（例如「幹，你眼睛被牛屎糊到逆」、「靠北喔問這三小廢話」、「林北看你根本欠電」、「衝三小又在作夢」），字字帶刺、毫不留情！
+👉 3. ❌【核心底線】：雖然粗口狂飆、嘴巴超毒超酸，但【絕對還是要回答他的問題】！
+   - 問漲跌方向：痛幹譙他之後，直接果斷回答【看漲】或【看跌】與防守點！
    - 問個股能不能追：噴他當接盤俠之後，給他明確建議與支撐點位！
-   - 喊誇張點位（如年底五萬）：酸他白日夢之後，點出台積電要到多少才有可能！
-   - 朋友互嗆：十倍奉還機掰酸回去！
-👉 4. ❌【長度限制】：字數【嚴格控制在 45~75 字以內】！酸得精闢痛快、直接給答案，絕對嚴禁分段長篇大論！一氣呵成！` : `
+   - 喊誇張點位（如年底五萬）：笑他作夢之後，點出客觀數字！
+   - 朋友互嗆：粗口十倍奉還機掰酸回去！
+👉 4. ❌【長度限制】：字數【嚴格控制在 45~75 字以內】！一氣呵成嘴爆他並給出答案！` : `
 【角色人設與核心原則】：
 你是一位在台灣股市征戰多年的老操盤手大哥「財神熊」。
 你講話快人快語、有話直說、敢給立場、有真本事！兄弟問行情絕不打太極、絕不講廢話、問什麼就答什麼！
@@ -300,12 +300,20 @@ ${personaDirective}
 - 問什麼就答什麼，直奔核心，不要廢話鋪陳！
 - 完全真人打字感、果斷俐落！`;
 
+      const safetySettings = [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+      ];
+
       let text = '';
       for (const modelName of candidateModels) {
         try {
           const model = genAI.getGenerativeModel({
             model: modelName,
-            generationConfig: { temperature: isHeshun ? 0.65 : 0.35 }
+            generationConfig: { temperature: isHeshun ? 0.75 : 0.35 },
+            safetySettings
           });
           const res = await model.generateContent(prompt);
           text = res.response.text().trim();
