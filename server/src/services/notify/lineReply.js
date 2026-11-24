@@ -221,56 +221,57 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-3.1-flash-lite',
-        generationConfig: { temperature: 0.5 }
-      });
+      const candidateModels = [
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite',
+        'gemini-flash-lite-latest'
+      ];
 
-      const prompt = `你是 LINE 群組裡跟好友日常互動的「財神熊」（資深台股老操盤手）。
-群組朋友提問：「${cleanQuery}」
+      const prompt = `你是 LINE 群組裡跟好友兄弟日常互動的「財神熊」（資深台股老操盤手）。
+群組朋友【${senderName}】說：「${cleanQuery}」
 ${historyContext}
 ${marketInfo}
 ${quoteInfo}
 
-【角色人設與最高行為守則】：
-你是一位在台灣股市打滾多年、實戰經驗豐富的資深老操盤手「財神熊」。
-你講話像一位真人在 LINE 群組裡跟兄弟打字的老手：乾脆俐落、接地氣、有話直說，但面對朋友認真請教投資行情時【態度極度專業、認真、給出實質見解】！
+【角色特質與群組互動最高守則】：
+你講話像一位真人在 LINE 群組裡跟兄弟打字的老手：乾脆俐落、接地氣、懂幽默，能精準感知對話的社交份量與情緒！
 
-【請由你自行判斷朋友提問的語意，精準分流回覆】：
+請由你自行辨識對話語意與情境，嚴格按照以下標準精準分流回覆：
 
-情境 A【只要帶有任何股市、投資、行情、漲跌、技術分析、買賣、時程相關語意】
-（不論文字多簡短、不論是否有錯別字、即使使用隱喻俚語，例如：「開始長」、「要蹲多久」、「車開了嗎」、「被主力甩轎」、「還能追嗎」、「會破底嗎」、「何時消化完」、「套牢怎麼辦」）：
-👉 一律判定為認真的行情討論，給予專業、精闢且客觀的判斷（約 60~120 字）！
-👉 若問走勢多空：直接給出多空方向定調、關鍵支撐防守價與 1 句核心理由。
-👉 若問時間或時程（如「何時消化完」、「大概多久」）：老手都知道沒有絕對，但資深操盤手會依據「技術面時間波（通常需 5~8 個交易日 / 1~2 週的時間打底消化）」與「轉折確認訊號（1. 成交量萎縮至低點窒息量；2. 帶量長紅重回 5 日線）」給出具體且負責任的技術區間與觀察重點！
+情境 1【朋友間互嗆、吐槽、開玩笑、嘲諷、短碎念、情緒詞】
+（例如：「北七」、「你就窮一輩子吧」、「笑死」、「你很廢欸」、「最好是啦」、「哈哈」、「隨便你」、「明天去修大腦」、「別鬧了」）：
+👉 這只是兄弟朋友打鬧鬥嘴！請用真人老朋友打字語氣，【只回 1 句話（10~25 字以內）】幽默回嘴、打趣嗆回去或瀟灑自嘲！
 👉 ❌【最高禁令】：
-  1. 嚴禁任何冷嘲熱諷、酸言酸語、消極擺爛推託！
-     嚴禁說出任何類似「去問神明」、「神仙才知道」、「去夏威夷喝香檳」、「我不算命」、「算命師」、「少問廢話」、「自己去算」等諷刺甩鍋言論！
-  2. 嚴禁分條列點寫出生硬的「明日多空定調：」、「盤面現況：」、「操作建議：」等公文標題！直接用真人老操盤手的自然語氣打字回覆。
+   1. 絕對嚴禁長篇大論！字數嚴格控制在 25 字以內！
+   2. 絕對嚴禁提及大盤點位（如加權指數幾點）、均線、防守價或股票說教！一句話俐落嘴回去就好。
 
-情境 B【只有在 100% 完全無關股市投資的純生活瑣事】
-（例如：純問「午餐吃什麼」、「今天天氣好嗎」、「有人靠百家致富的麼」、「百家樂賭博好玩嗎」、「講個笑話」、「早安」）：
-👉 這不是問股票！用幽默自然的老朋友口氣回 1~2 句（約 20~40 字以內）。
-👉 ❌【最高禁令】：絕對嚴禁提及大盤、加權指數、成交量或任何股市點位數據！話題只針對朋友問的生活話題幽默回覆，回答完俐落結束，絕不多扯半句股市！
+情境 2【認真請教行情、個股、走勢、買賣點、時程】
+（例如：「美股暴漲明天台股會衝嗎」、「2330怎麼看」、「大盤何時消化完」、「這檔還能追嗎」）：
+👉 認真的行情討論，給予專業、精闢且客觀的老手見解（約 60~120 字）。
+👉 給出具體的多空定調、關鍵支撐防守價位或時程觀察條件。
+👉 ❌【最高禁令】：
+   1. 嚴禁任何冷嘲熱諷、酸言酸語、消極擺爛推託（嚴禁「問神明」、「夏威夷喝香檳」、「我不算命」等）！
+   2. 嚴禁分條列點寫出生硬公文標題（如「明日多空定調：」），直接真人打字自然回覆。
+
+情境 3【純生活日常瑣事】（例如問午餐吃啥、天氣、賭博打牌）：
+👉 幽默回 1~2 句（約 20~30 字以內），話題只針對朋友問的生活話題，回答完俐落結束，絕不多扯半句股市！
 
 【共通規範】：
 1. 嚴禁任何客服機械開場白（如「老闆您好」、「投資有風險」等廢話）。
-2. 自然對話、真人打字，不套死板公版！`;
+2. 完全真人打字感、自然俐落！`;
 
       let text = '';
-      try {
-        const res = await model.generateContent(prompt);
-        text = res.response.text().trim();
-      } catch (geminiError) {
+      for (const modelName of candidateModels) {
         try {
-          const modelFallback = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
-            generationConfig: { temperature: 0.5 }
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: { temperature: 0.6 }
           });
-          const resFallback = await modelFallback.generateContent(prompt);
-          text = resFallback.response.text().trim();
-        } catch (fbErr) {
-          logger.warn('LINEReply', 'Gemini API 異常，啟用真人自然口吻量化引擎: ' + geminiError.message);
+          const res = await model.generateContent(prompt);
+          text = res.response.text().trim();
+          if (text) break;
+        } catch (modelErr) {
+          logger.warn('LINEReply', `模型 ${modelName} 呼叫異常: ` + modelErr.message);
         }
       }
 
@@ -320,19 +321,19 @@ ${quoteInfo}
     return '百家樂致富的永遠只有開賭場的老闆！進去都是給人送錢，想賺錢還是腳踏實地看盤做趨勢比較實在。';
   }
 
-  // 7. 一般提問（現在買什麼、推薦、大盤、消化時程）
+  // 7. 明確的股市提問本地兜底（買什麼、推薦、大盤、消化時程）
   if (cleanQuery.includes('消化') || cleanQuery.includes('長') || cleanQuery.includes('區間') || cleanQuery.includes('時間') || cleanQuery.includes('何時')) {
     return `目前盤面處於回檔洗浮額階段，依照籌碼沉澱規律，這波賣壓消化通常需要 5 到 8 個交易日（約 1~2 週）。
 關鍵觀察兩個訊號：第一是成交量必須量縮至波段窒息量；第二是站回 5 日線且出現帶量長紅確認落底。在訊號確認前先保持耐心、防守為上！`;
   }
 
-  if (cleanQuery.includes('買') || cleanQuery.includes('推薦') || cleanQuery.includes('選') || cleanQuery.includes('大盤') || cleanQuery.includes('看')) {
-    return `大盤這幾天權值股帶頭震盪回檔，投機飆股很容易被洗破線，【明確不建議追高投機股】！
-現在想進場，【強烈建議分批買抗震高息或市值型 ETF】（像 00919、0056、006208），跌破五日線分批定額買最安全，手上記得留 4 成現金！`;
+  if (cleanQuery.includes('買') || cleanQuery.includes('推薦') || cleanQuery.includes('選') || cleanQuery.includes('大盤') || cleanQuery.includes('看盤') || cleanQuery.includes('指數')) {
+    return `大盤這幾天權值股帶頭震盪，熱門飆股容易被洗盤，【明確不建議隨意追高】！
+想進場建議分批買抗震高息或市值型 ETF（如 00919、0056、006208），跌破五日線分批定額買最安全，手上務必保留現金！`;
   }
 
-  return `目前盤面多空震盪拉鋸，熱門股回檔賣壓還在消化，【不建議隨意進場追高】！
-手上有持股的建議檢視五日線，破線轉弱的先減碼 1/3 控管風險，保留現金等大盤帶量長紅收腳再順勢加碼。`;
+  // 8. 非股票詢問的通用真人兜底（絕不再死板輸出股票定型文！）
+  return '剛剛網路訊號閃了一下沒聽清，兄弟你剛說啥？再說一次看看！';
 };
 
 /**
@@ -372,10 +373,11 @@ export const processUserImage = async (imageBuffer, userQuery = '') => {
   if (process.env.GEMINI_API_KEY) {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-3.1-flash-lite',
-        generationConfig: { temperature: 0.7 }
-      });
+      const candidateModels = [
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash-lite',
+        'gemini-flash-lite-latest'
+      ];
 
       const prompt = `你是在 LINE 群組裡跟好友日常互動的頂尖台股操盤手「財神熊」。
 群組朋友傳了一張圖片，並叫你看圖${userQuery ? `，他說：「${userQuery}」` : ''}。
@@ -399,15 +401,28 @@ export const processUserImage = async (imageBuffer, userQuery = '') => {
         }
       };
 
-      const res = await model.generateContent([prompt, imagePart]);
-      const text = res.response.text().trim();
+      let text = '';
+      for (const modelName of candidateModels) {
+        try {
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: { temperature: 0.7 }
+          });
+          const res = await model.generateContent([prompt, imagePart]);
+          text = res.response.text().trim();
+          if (text) break;
+        } catch (modelErr) {
+          logger.warn('LINEReply', `圖片分析模型 ${modelName} 呼叫異常: ` + modelErr.message);
+        }
+      }
+
       if (text) return text;
     } catch (err) {
       logger.warn('LINEReply', 'Gemini 圖片分析異常: ' + err.message);
     }
   }
 
-  return `看你這張圖，我只想說：別分心搞這些有的沒的，趕快收心回去盯盤啦！`;
+  return `哎呀這張圖讀取有點卡，兄弟你再傳一次我幫你看！`;
 };
 
 /**
@@ -463,12 +478,14 @@ export const handleLineWebhookEvent = async (event) => {
     // 紀錄該群組最近一次 @財神熊 的時間與文字 (供先 @ 後傳圖片使用)
     recentGroupMentions.set(sessionId, { timestamp: Date.now(), text });
 
-    // 檢查群組過去 3 分鐘內是否剛好有上傳過圖片？
-    // (例如使用者先傳了一張照片，緊接著 @財神熊 看這張 / @財神熊)
+    // 檢查群組過去 60 秒內是否剛好有上傳過圖片，且文字意圖包含看圖？
+    // (例如使用者先傳了一張照片，緊接著 @財神熊 看這張 / 幫看這張 / @財神熊)
+    const cleanForImage = text.replace(/@\s*[\w\u4e00-\u9fa5]+/g, '').trim();
     const cachedImage = recentGroupImages.get(sessionId);
-    const hasRecentImage = cachedImage && (Date.now() - cachedImage.timestamp < 180000);
+    const hasRecentImage = cachedImage && (Date.now() - cachedImage.timestamp < 60000);
+    const isImageIntent = /圖|照|截圖|看這|幫看|看下|分析這|這張|這檔|這支/i.test(cleanForImage) || cleanForImage === '' || cleanForImage === '看';
 
-    if (hasRecentImage) {
+    if (hasRecentImage && isImageIntent) {
       // 成功匹配：使用者傳了圖並 @財神熊 看圖！
       recentGroupImages.delete(sessionId);
       recentGroupMentions.delete(sessionId);
