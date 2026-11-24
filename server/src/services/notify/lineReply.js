@@ -150,10 +150,15 @@ async function getUserDisplayName(groupId, userId) {
 }
 
 /**
- * 專屬尊稱處理（當發問者是和順 / 星森董事長時，回覆一律以「和順老闆」開頭）
+ * 專屬尊稱處理（當發問者是和順時，回覆一律以「和順老闆」開頭，且絕對嚴禁洩漏「星森」字眼）
  */
 export const applyHonorific = (text, senderName = '') => {
   if (!text) return text;
+
+  // ⚠️【核心保密防護】：徹底過濾「星森」任何字眼，群組一律只能叫「和順老闆」，絕不可洩漏「星森」！
+  text = text.replace(/星森[董董事長]*/g, '和順老闆');
+  text = text.replace(/星森/g, '和順');
+
   if (/和順|星森/i.test(senderName)) {
     if (!text.startsWith('和順老闆')) {
       text = text.replace(/^(和順[，,！!~～\s]*|星森[董董事長]*[，,！!~～\s]*)/, '');
@@ -172,6 +177,12 @@ export const processUserQuestion = async (userText, sessionId = 'default', sende
 };
 
 const _processUserQuestionRaw = async (userText, sessionId = 'default', senderName = '群組朋友') => {
+  // 將可能帶有星森的發問者名稱直接正規化為「和順老闆」，徹底絕跡私下備註
+  let cleanSenderName = senderName;
+  if (/和順|星森/i.test(cleanSenderName)) {
+    cleanSenderName = '和順老闆';
+  }
+
   // 1. 去除 @提及 標籤（精確移除 @財神熊、@bot、@我，支援文字黏在後面，如 @財神熊房子貸款也要買）
   let cleanQuery = userText
     .replace(/@\s*財神熊/gi, '')
@@ -262,15 +273,16 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
         'gemini-3.1-flash-lite'
       ];
 
-      const isHeshun = /和順|星森/i.test(senderName);
+      const isHeshun = /和順|星森/i.test(senderName) || /和順/.test(cleanQuery);
 
       const honorificDirective = isHeshun ? `
-【發問者專屬稱呼】：
-發問者是【和順】（星森董事長 / 和順老闆）：
-👉 開頭第一句一律自然尊稱「和順老闆，」，維持敬重專業、客觀穩健、如好友操盤手一般的交流。` : '';
+【發問者專屬稱呼（最高核心保密規則）】：
+發問朋友是【和順老闆】：
+👉 開頭第一句一律稱呼「和順老闆，」，維持敬重專業、客觀穩健、如好友操盤手一般的交流。
+⚠️【最高禁令】：全世界只有稱呼他「和順老闆」！絕對嚴禁出現「星森」、「星森董事長」任何字眼（這是在個人手機上的私下備註，如果講出來會穿幫被罵！絕對嚴禁講「星森」）！` : '';
 
       const prompt = `你是 LINE 投資群組裡跟朋友互動的資深台股操盤手「財神熊」。
-群組朋友【${senderName}】發問：「${cleanQuery}」
+群組朋友【${cleanSenderName}】發問：「${cleanQuery}」
 ${historyContext}
 ${marketInfo}
 ${quoteInfo}
@@ -513,7 +525,7 @@ export const handleLineWebhookEvent = async (event) => {
       const isDirectlyTagged = mentees.some(m => m.isSelf === true);
       const taggedOthers = mentees.some(m => m.isSelf === false);
 
-      // 如果使用者有 @ 標註群組其他朋友（例如 @星森董事長），且沒有呼叫機器人，絕對不可插嘴！
+      // 如果使用者有 @ 標註群組其他朋友（例如 @小明），且沒有呼叫機器人，絕對不可插嘴！
       if (taggedOthers && !isDirectlyTagged && !text.includes('財神熊')) {
         return false;
       }
@@ -537,6 +549,9 @@ export const handleLineWebhookEvent = async (event) => {
       } catch (e) {
         // 忽略
       }
+    }
+    if (/和順|星森/i.test(senderName)) {
+      senderName = '和順老闆';
     }
 
     // 紀錄該群組最近一次 @財神熊 的時間與文字 (供先 @ 後傳圖片使用)
