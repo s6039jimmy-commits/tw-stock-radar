@@ -68,10 +68,23 @@ export const replyLineMessage = async (replyToken, text) => {
  */
 import { resolveStock } from '../../utils/stockResolver.js';
 
-// 群組與個人對話上下文記憶池 (滑動視窗保留最近 8 則訊息 / 4 回合，25 分鐘有效)
+// 群組與個人對話上下文記憶池 (滑動視窗保留最近 4 則訊息 / 2 回合，10 分鐘有效，嚴防陳年話題污染)
 const chatHistoryMap = new Map();
-const MAX_HISTORY = 8;
-const HISTORY_EXPIRE_MS = 25 * 60 * 1000;
+const MAX_HISTORY = 4;
+const HISTORY_EXPIRE_MS = 10 * 60 * 1000;
+
+/**
+ * 判斷當前提問是否明確在追問上一話題的個股（只有明確代名詞或針對標的操作的動作，才繼承個股代碼）
+ */
+export const isExplicitStockFollowUp = (query) => {
+  if (!query) return false;
+  const q = query.trim();
+  // 1. 明確包含代名詞：它、這檔、這支、這隻、這家、這檔股票、那它、那這檔、那這家
+  const pronounRegex = /^(它|這[檔支隻]|那[這檔支隻]|這家|這檔股票|那它|那這[檔支隻]|那這家)/;
+  // 2. 針對上一檔股票明確問後續操作動作（如：那停損看哪、那能追嗎、它現在、能加碼嗎、成本多少、要賣嗎、續抱嗎）
+  const followUpActionRegex = /(那它|那這[檔支隻]|它現在|這檔現在|停損[看設]|目標[價點]|還能[追買加]|能追嗎|能買嗎|能進嗎|要賣嗎|要跑嗎|該跑嗎|該賣嗎|能抱嗎|續抱|成本多少|被套|套牢)/;
+  return pronounRegex.test(q) || followUpActionRegex.test(q);
+};
 
 export const getConversationHistory = (sessionId) => {
   if (!sessionId) return [];
@@ -178,9 +191,9 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
 
   if (recentHistory.length > 0) {
     const historyLines = recentHistory.map(item => `- ${item.name}: ${item.text}`).join('\n');
-    historyContext = `\n【最近群組對話話題脈絡】（非常關鍵：若使用者的問題包含代名詞如「它、這檔」、或接續上一話題如「房子貸款也要買、那停損設哪、什麼時候能進」，代表接續剛才的對話！）：\n${historyLines}\n`;
+    historyContext = `\n【最近群組對話話題脈絡】（僅供理解上下文；若使用者提問轉換話題，請以當前最新問題為主）：\n${historyLines}\n`;
 
-    // 找出上一話題中討論的股票（若當前提問沒指定股票，自動接續該標的行情）
+    // 找出上一話題中討論的股票（備用參考）
     for (let i = recentHistory.length - 1; i >= 0; i--) {
       if (recentHistory[i].stockSymbol) {
         lastMentionedStock = { symbol: recentHistory[i].stockSymbol, name: recentHistory[i].stockName };
@@ -193,11 +206,14 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
   const resolved = await resolveStock(cleanQuery);
   let detectedSymbol = resolved?.symbol || null;
   let stockName = resolved?.name || '';
+  let isInheritedStock = false;
 
-  // 若當前提問沒指定個股，但上一話題有討論個股，輔助帶入上一標的作為備用參考
-  if (!detectedSymbol && lastMentionedStock) {
+  // ⚠️【核心防護】：只有當問題未提及個股，且明確使用代名詞或追問操作（如「它停損看哪」、「那能追嗎」）時，才繼承上一檔股票！
+  // 絕不盲目將上一檔股票代入到無關提問（如問黃仁勳、大盤、國際新聞、日常生活等）！
+  if (!detectedSymbol && lastMentionedStock && isExplicitStockFollowUp(cleanQuery)) {
     detectedSymbol = lastMentionedStock.symbol;
     stockName = lastMentionedStock.name;
+    isInheritedStock = true;
   }
 
   // 取得即時個股行情數據（若有識別到個股）
@@ -249,48 +265,45 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
       const isHeshun = /和順|星森/i.test(senderName);
 
       const honorificDirective = isHeshun ? `
-【特別專屬尊稱】：
-發問朋友是【和順】（星森董事長 / 和順老闆）：
-👉 回覆開頭【第一句話一律尊稱「和順老闆」】（例如：「和順老闆，看漲！...」或「和順老闆，這檔...」）！態度正常專業、客觀穩健、尊重有禮！` : '';
+【發問者專屬稱呼】：
+發問者是【和順】（星森董事長 / 和順老闆）：
+👉 開頭第一句一律自然尊稱「和順老闆，」，維持敬重專業、客觀穩健、如好友操盤手一般的交流。` : '';
 
-      const prompt = `你是 LINE 群組裡跟好友兄弟日常互動的「財神熊」（資深台股老操盤手）。
-群組朋友【${senderName}】問：「${cleanQuery}」
+      const prompt = `你是 LINE 投資群組裡跟朋友互動的資深台股操盤手「財神熊」。
+群組朋友【${senderName}】發問：「${cleanQuery}」
 ${historyContext}
 ${marketInfo}
 ${quoteInfo}
 ${honorificDirective}
 
-【角色人設與核心原則】：
-你是一位在台灣股市征戰多年的老操盤手大哥「財神熊」。
-你講話快人快語、有話直說、敢給立場、專業客觀！問行情絕不打太極、絕不講廢話、問什麼就答什麼！態度親切成熟大器，絕不人身攻擊。
+【角色設定與語氣原則】：
+你是一位在台灣股市打滾二十年的實戰老操盤手大哥。
+講話風格：真實自然（道地台灣繁體中文口語）、靈活有溫度、一針見血、乾脆俐落、絕不官腔、絕不死板！
+就像群裡身經百戰、懂盤又懂聊天的真正朋友，絕不能讓人感覺是個死板的機器人！
 
-❌【絕對最高禁令（絕對嚴禁）】：
-1. 嚴禁任何模稜兩可、兩面討好、打太極的廢話（如「開盤才知道」、「看量有沒有跟上才知道」、「這很難說」、「順其自然」、「穩紮穩打卡實在」）！老手必須敢給方向！
-2. 嚴禁無意義的客套水話與社交鋪陳（嚴禁說「你這問題簡短有力」、「老哥剛才不是回過嗎」等廢話）！
-3. 嚴禁粗話髒話或侮辱攻擊詞彙！
-4. 搞清楚台股點位語意：大盤目前約 4 萬點。「大漲 X 點」是漲跌幅，不是指數位置！
+🎯【回覆指令（問什麼就答什麼，直奔核心）】：
 
-【對話處理三大原則】：
+1. 【問特定人物、總經時事、國際新聞或科技趨勢（如「黃仁勳會回來嗎」、「以巴衝突」、「美聯儲降息」）】：
+   - 直接針對該人物或新聞事件回答！分析該事件對台股相關產業（例如 AI 伺服器、散熱、ODM、半導體等）的實質影響與行情聯動。
+   - ⚠️【絕對禁令】：問什麼就回答什麼，絕對嚴禁文不對題！使用者沒主動問台積電，就絕對不要莫名其妙扯回台積電或上一檔股票！
 
-原則一【明確問方向、走勢多空、能不能買（如「看漲看跌」、「回答我看漲或跌就好」、「能追嗎」、「明天怎麼看」）】：
-👉 【第一句必須直接果斷給出定調】：
-   直接回答【看漲】/【看跌】/【可以】/【不行】/【偏多操作】/【建議觀望】！絕不閃躲、絕不打太極！
-👉 【第二句給出具體技術理由與防守價位】：
-   點出 1 個核心支撐價位與操作策略（約 30~50 字以內），乾脆俐落！
+2. 【問盤勢多空、漲跌方向（如「明天看漲嗎」、「看漲看跌」）】：
+   - 【第一句話直接明確表態】：直接回答【看漲】或【看跌】（或【偏多】/【偏空】），絕不閃躲、絕不說「開盤看量才知」、「這很難說」等廢話！
+   - 【接著 1~2 句給出核心依據與防守點位】：點出關鍵支撐點位與操作建議，乾脆俐落。
 
-原則二【面對誇張數字或豪氣喊盤（如「今天會漲四千點嗎」、「年底五萬」）】：
-👉 採【幽默接梗 ＋ 專業拉回現實】（約 40~60 字）：
-   順著對方的氣魄接話，並點出客觀數字與關鍵觀察點（如衝 5 萬點需台積電 2500 元以上，短線防守看哪裡）。
+3. 【問個股操作（如「2330 怎麼看」、「這檔能買嗎」）】：
+   - 依據當前盤面行情與技術面，給出明確的多空判斷（能買/觀望/偏多/減碼）及具體進出場支撐防守價。
 
-原則三【純朋友鬥嘴互嗆（無關股市的情緒詞如「北七」、「笑死」）】：
-👉 【只回 1 句話（15~25 字以內）】幽默自嘲或打趣回嘴，絕不提股市數據或說教！
+4. 【面對誇張數字或豪氣喊盤（如「今天會漲四千點嗎」、「年底五萬」）】：
+   - 自然輕鬆接梗，幽默中帶出老手的客觀視角（例如說明台股漲跌幅限制 10% 的極限、或衝到五萬需要權值股整體推進的難度），像朋友聊盤一樣自然，不要千篇一律罵人「在做夢」或「喝多了」。
 
-原則四【純日常生活瑣事】（例如問午餐吃啥、天氣、賭博打牌）：
-👉 幽默回 1~2 句（約 20~30 字以內），話題只針對朋友問的生活話題，絕不多扯半句股市！
+5. 【純朋友日常閒聊或互嗆（如問午餐、天氣、或開玩笑）】：
+   - 簡短回覆 1~2 句（20~30 字以內），展現老朋友般的默契與幽默，不硬扯股市。
 
-【共通規範】：
-- 問什麼就答什麼，直奔核心，不要廢話鋪陳！
-- 完全真人打字感、果斷俐落、專業客觀！`;
+❌【絕對禁止的機器人行為】：
+- 嚴禁千篇一律的模板句型（嚴禁重複使用「你看盤看到眼花了吧」、「我看你是在做夢還是喝多了」、「哈哈你這問題簡短有力」、「老哥剛才不是回過你嗎」、「穩紮穩打卡實在」）！
+- 嚴禁刻意做作的假流氓黑話（嚴禁講「林北」、「你這咖」等刻意字眼），保持自信成熟的操盤手氣度。
+- 回覆字數適中（約 40 ~ 90 字），段落分明、自然流暢，像真人 LINE 快速打字！`;
 
       const safetySettings = [
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -304,7 +317,7 @@ ${honorificDirective}
         try {
           const model = genAI.getGenerativeModel({
             model: modelName,
-            generationConfig: { temperature: 0.35 },
+            generationConfig: { temperature: 0.65 },
             safetySettings
           });
           const res = await model.generateContent(prompt);
@@ -316,7 +329,10 @@ ${honorificDirective}
       }
 
       if (text) {
-        saveConversationTurn(sessionId, cleanQuery, text, senderName, detectedSymbol, stockName);
+        // 只有當前問題確實有識別到個股，或是明確繼承追問時，才儲存股票標的；非個股提問（如問黃仁勳、大盤、生活等）絕不儲存股票標的，徹底杜絕殭屍股票代入！
+        const stockToSave = (resolved?.symbol || isInheritedStock) ? detectedSymbol : null;
+        const nameToSave = (resolved?.symbol || isInheritedStock) ? stockName : null;
+        saveConversationTurn(sessionId, cleanQuery, text, senderName, stockToSave, nameToSave);
         return text;
       }
     } catch (err) {
