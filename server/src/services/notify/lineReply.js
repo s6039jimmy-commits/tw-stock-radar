@@ -1,7 +1,98 @@
 import axios from 'axios';
+import YahooFinance from 'yahoo-finance2';
 import { logger } from '../../utils/logger.js';
 import { getQuote } from '../fugle/marketData.js';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+
+// 常用熱門美股代碼與名稱對照表
+const US_STOCK_MAP = {
+  // 科技巨頭與熱門標的
+  '輝達': { symbol: 'NVDA', name: '輝達 (NVIDIA)' },
+  'nvda': { symbol: 'NVDA', name: '輝達 (NVIDIA)' },
+  'nvidia': { symbol: 'NVDA', name: '輝達 (NVIDIA)' },
+  '特斯拉': { symbol: 'TSLA', name: '特斯拉 (Tesla)' },
+  'tsla': { symbol: 'TSLA', name: '特斯拉 (Tesla)' },
+  'tesla': { symbol: 'TSLA', name: '特斯拉 (Tesla)' },
+  '蘋果': { symbol: 'AAPL', name: '蘋果 (Apple)' },
+  'aapl': { symbol: 'AAPL', name: '蘋果 (Apple)' },
+  'apple': { symbol: 'AAPL', name: '蘋果 (Apple)' },
+  '微軟': { symbol: 'MSFT', name: '微軟 (Microsoft)' },
+  'msft': { symbol: 'MSFT', name: '微軟 (Microsoft)' },
+  '超微': { symbol: 'AMD', name: '超微 (AMD)' },
+  'amd': { symbol: 'AMD', name: '超微 (AMD)' },
+  '台積電adr': { symbol: 'TSM', name: '台積電 ADR' },
+  'tsm': { symbol: 'TSM', name: '台積電 ADR' },
+  'tsmc adr': { symbol: 'TSM', name: '台積電 ADR' },
+  '聯電adr': { symbol: 'UMC', name: '聯電 ADR' },
+  'umc': { symbol: 'UMC', name: '聯電 ADR' },
+  '鴻海adr': { symbol: 'HNHPF', name: '鴻海 ADR' },
+  '谷歌': { symbol: 'GOOGL', name: 'Alphabet / Google' },
+  'google': { symbol: 'GOOGL', name: 'Alphabet / Google' },
+  'googl': { symbol: 'GOOGL', name: 'Alphabet / Google' },
+  '亞馬遜': { symbol: 'AMZN', name: '亞馬遜 (Amazon)' },
+  'amzn': { symbol: 'AMZN', name: '亞馬遜 (Amazon)' },
+  'amazon': { symbol: 'AMZN', name: '亞馬遜 (Amazon)' },
+  'meta': { symbol: 'META', name: 'Meta' },
+  '臉書': { symbol: 'META', name: 'Meta' },
+  '博通': { symbol: 'AVGO', name: '博通 (Broadcom)' },
+  'avgo': { symbol: 'AVGO', name: '博通 (Broadcom)' },
+  '美光': { symbol: 'MU', name: '美光 (Micron)' },
+  'mu': { symbol: 'MU', name: '美光 (Micron)' },
+  '高通': { symbol: 'QCOM', name: '高通 (Qualcomm)' },
+  'qcom': { symbol: 'QCOM', name: '高通 (Qualcomm)' },
+  '英特爾': { symbol: 'INTC', name: '英特爾 (Intel)' },
+  'intel': { symbol: 'INTC', name: '英特爾 (Intel)' },
+  'smci': { symbol: 'SMCI', name: '美超微 (Supermicro)' },
+  '美超微': { symbol: 'SMCI', name: '美超微 (Supermicro)' },
+  'pltr': { symbol: 'PLTR', name: 'Palantir' },
+  'palantir': { symbol: 'PLTR', name: 'Palantir' },
+
+  // 指數與主要 ETF
+  '納斯達克': { symbol: '^IXIC', name: '納斯達克綜合指數' },
+  '那斯達克': { symbol: '^IXIC', name: '那斯達克綜合指數' },
+  '納指': { symbol: '^IXIC', name: '納斯達克綜合指數' },
+  '那指': { symbol: '^IXIC', name: '那斯達克綜合指數' },
+  'qqq': { symbol: 'QQQ', name: 'Invesco QQQ 納指 ETF' },
+  '費城半導體': { symbol: '^SOX', name: '費城半導體指數' },
+  '費半': { symbol: '^SOX', name: '費城半導體指數' },
+  'sox': { symbol: '^SOX', name: '費城半導體指數' },
+  'soxx': { symbol: 'SOXX', name: 'iShares 半導體 ETF' },
+  '標普500': { symbol: '^GSPC', name: '標普 500 指數' },
+  '標普': { symbol: '^GSPC', name: '標普 500 指數' },
+  's&p500': { symbol: '^GSPC', name: '標普 500 指數' },
+  's&p': { symbol: '^GSPC', name: '標普 500 指數' },
+  'spy': { symbol: 'SPY', name: 'SPDR 標普 500 ETF' },
+  'voo': { symbol: 'VOO', name: 'Vanguard 標普 500 ETF' },
+  '道瓊': { symbol: '^DJI', name: '道瓊工業指數' },
+  '道瓊指數': { symbol: '^DJI', name: '道瓊工業指數' }
+};
+
+export const resolveUSStock = (query) => {
+  if (!query) return null;
+  const q = query.toLowerCase();
+  for (const [key, val] of Object.entries(US_STOCK_MAP)) {
+    if (q.includes(key)) {
+      return val;
+    }
+  }
+  return null;
+};
+
+export const isUSMarketQuery = (query) => {
+  if (!query) return false;
+  if (resolveUSStock(query)) return true;
+  return /(美股|美指|夜盤|美東|美盤|美債|美聯儲|聯準會|降息幾碼|鮑爾)/i.test(query);
+};
+
+export const isCrossMarketQuery = (query) => {
+  if (!query) return false;
+  const hasUS = /(美股|美指|納指|那指|費半|標普|道瓊|輝達|美債)/i.test(query);
+  const hasTW = /(台股|大盤|加權|台積電|外資|明天開盤|開盤會不會)/i.test(query);
+  const hasRelation = /(影響|帶動|連動|拖累|波及|牽動|怎麼看明天|明天會怎樣)/i.test(query);
+  return (hasUS && hasTW) || (hasUS && hasRelation);
+};
 
 // 常見熱門股代碼對應
 const STOCK_NAME_MAP = {
@@ -213,54 +304,123 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
     }
   }
 
-  // 3. 自動識別個股代碼或標的（輔助獲取最新行情提供給 AI 參考，不作任何硬性限制攔截）
-  const resolved = await resolveStock(cleanQuery);
-  let detectedSymbol = resolved?.symbol || null;
-  let stockName = resolved?.name || '';
+  // 3. 自動識別個股代碼或標的（美股與台股雙引擎）
+  const isUS = isUSMarketQuery(cleanQuery);
+  const isCross = isCrossMarketQuery(cleanQuery);
+  const resolvedUS = resolveUSStock(cleanQuery);
+
+  let detectedSymbol = null;
+  let stockName = '';
+  let isUSStock = false;
   let isInheritedStock = false;
+  let resolved = null;
+
+  if (resolvedUS) {
+    detectedSymbol = resolvedUS.symbol;
+    stockName = resolvedUS.name;
+    isUSStock = true;
+  } else if (!isUS) {
+    resolved = await resolveStock(cleanQuery);
+    if (resolved) {
+      detectedSymbol = resolved.symbol;
+      stockName = resolved.name;
+    }
+  }
 
   // ⚠️【核心防護】：只有當問題未提及個股，且明確使用代名詞或追問操作（如「它停損看哪」、「那能追嗎」）時，才繼承上一檔股票！
-  // 絕不盲目將上一檔股票代入到無關提問（如問黃仁勳、大盤、國際新聞、日常生活等）！
   if (!detectedSymbol && lastMentionedStock && isExplicitStockFollowUp(cleanQuery)) {
     detectedSymbol = lastMentionedStock.symbol;
     stockName = lastMentionedStock.name;
     isInheritedStock = true;
+    isUSStock = /^[A-Z\^]{1,6}$/.test(detectedSymbol) && !/^\d{4,6}$/.test(detectedSymbol);
   }
 
-  // 取得即時個股行情數據（若有識別到個股）
+  // 取得即時行情數據（美股用 Yahoo Finance，台股用 Fugle）
   let quoteInfo = '';
   let currentQuote = null;
-  if (detectedSymbol && detectedSymbol !== 'IX0001') {
-    try {
-      currentQuote = await getQuote(detectedSymbol);
-      if (currentQuote) {
-        const price = currentQuote.closePrice || currentQuote.lastPrice || 0;
-        const change = parseFloat(currentQuote.change || 0);
-        const changePct = parseFloat(currentQuote.changePercent || 0);
-        const sign = change >= 0 ? '+' : '';
-        const name = stockName || currentQuote.name || detectedSymbol;
-        quoteInfo = `\n【${detectedSymbol} ${name} 即時行情】：成交價 NT$ ${price} (${sign}${change} / ${sign}${changePct}%)`;
+
+  if (detectedSymbol) {
+    if (isUSStock || resolvedUS) {
+      try {
+        const uq = await yahooFinance.quote(detectedSymbol);
+        if (uq) {
+          const price = uq.regularMarketPrice || 0;
+          const change = parseFloat(uq.regularMarketChange || 0);
+          const changePct = parseFloat(uq.regularMarketChangePercent || 0);
+          const sign = change >= 0 ? '+' : '';
+          const unit = detectedSymbol.startsWith('^') ? '點' : '美元';
+          quoteInfo = `\n【${detectedSymbol} ${stockName} 美股即時行情】：現報 ${price} ${unit} (${sign}${change.toFixed(2)} / ${sign}${changePct.toFixed(2)}%)，今日區間 ${uq.regularMarketDayLow || price} ~ ${uq.regularMarketDayHigh || price}`;
+        }
+      } catch (e) {
+        logger.warn('LINEReply', `查詢美股報價 ${detectedSymbol} 失敗: ` + e.message);
       }
-    } catch (e) {
-      logger.warn('LINEReply', `查詢報價 ${detectedSymbol} 失敗: ` + e.message);
+    } else if (detectedSymbol !== 'IX0001') {
+      try {
+        currentQuote = await getQuote(detectedSymbol);
+        if (currentQuote) {
+          const price = currentQuote.closePrice || currentQuote.lastPrice || 0;
+          const change = parseFloat(currentQuote.change || 0);
+          const changePct = parseFloat(currentQuote.changePercent || 0);
+          const sign = change >= 0 ? '+' : '';
+          const name = stockName || currentQuote.name || detectedSymbol;
+          quoteInfo = `\n【${detectedSymbol} ${name} 台股即時行情】：成交價 NT$ ${price} (${sign}${change} / ${sign}${changePct}%)`;
+        }
+      } catch (e) {
+        logger.warn('LINEReply', `查詢台股報價 ${detectedSymbol} 失敗: ` + e.message);
+      }
     }
   }
 
-  // 取得大盤數據（常駐提供給 AI 作為大環境點位背景）
+  // 取得大盤數據（美股提問抓那斯達克，台股提問抓加權指數，跨市場提問抓兩者；絕對不把台股大盤強塞給美股提問！）
   let marketInfo = '';
-  let mPrice = 0;
-  try {
-    const marketQuote = await getQuote('IX0001');
-    if (marketQuote) {
-      mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
-      const mChange = parseFloat(marketQuote.change || 0);
-      const mChangePct = parseFloat(marketQuote.changePercent || 0);
-      const mSign = mChange >= 0 ? '+' : '';
-      const mHigh = marketQuote.highPrice || mPrice;
-      marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
-    }
-  } catch (e) {
-    // 忽略大盤獲取失敗
+  if (isUS && !isCross) {
+    // 專屬美股大盤行情（那斯達克）
+    try {
+      const nasdaqQuote = await yahooFinance.quote('^IXIC');
+      if (nasdaqQuote) {
+        const nPrice = nasdaqQuote.regularMarketPrice || 0;
+        const nChangePct = parseFloat(nasdaqQuote.regularMarketChangePercent || 0).toFixed(2);
+        const nSign = parseFloat(nChangePct) >= 0 ? '+' : '';
+        marketInfo = `\n【當前美股那斯達克即時行情】：現報 ${nPrice} 點 (${nSign}${nChangePct}%)。`;
+      }
+    } catch (e) {}
+  } else if (!isUS) {
+    // 純台股提問：台股加權指數
+    try {
+      const marketQuote = await getQuote('IX0001');
+      if (marketQuote) {
+        const mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
+        const mChange = parseFloat(marketQuote.change || 0);
+        const mChangePct = parseFloat(marketQuote.changePercent || 0);
+        const mSign = mChange >= 0 ? '+' : '';
+        const mHigh = marketQuote.highPrice || mPrice;
+        marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
+      }
+    } catch (e) {}
+  } else {
+    // 跨市場提問（問美股對台股的連動與影響）
+    try {
+      const [marketQuote, nasdaqQuote] = await Promise.all([
+        getQuote('IX0001').catch(() => null),
+        yahooFinance.quote('^IXIC').catch(() => null)
+      ]);
+      const parts = [];
+      if (marketQuote) {
+        const mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
+        const mChangePct = parseFloat(marketQuote.changePercent || 0);
+        const mSign = mChangePct >= 0 ? '+' : '';
+        parts.push(`台股加權指數現報 ${mPrice} 點 (${mSign}${mChangePct}%)`);
+      }
+      if (nasdaqQuote) {
+        const nPrice = nasdaqQuote.regularMarketPrice || 0;
+        const nChangePct = parseFloat(nasdaqQuote.regularMarketChangePercent || 0).toFixed(2);
+        const nSign = parseFloat(nChangePct) >= 0 ? '+' : '';
+        parts.push(`美股那斯達克現報 ${nPrice} 點 (${nSign}${nChangePct}%)`);
+      }
+      if (parts.length > 0) {
+        marketInfo = `\n【美股與台股跨市場即時行情】：${parts.join('，')}。`;
+      }
+    } catch (e) {}
   }
 
   // 4. AI 智慧分析生成回答（完全廢除人工死規則，由 Gemini 幾千億參數大腦自行理解語意與意圖！）
@@ -281,7 +441,8 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
 👉 開頭第一句一律稱呼「和順老闆，」，維持敬重專業、客觀穩健、如好友操盤手一般的交流。
 ⚠️【最高禁令】：全世界只有稱呼他「和順老闆」！絕對嚴禁出現「星森」、「星森董事長」任何字眼（這是在個人手機上的私下備註，如果講出來會穿幫被罵！絕對嚴禁講「星森」）！` : '';
 
-      const prompt = `你是 LINE 投資群組裡跟朋友互動的資深台股操盤手「財神熊」。
+      const prompt = `你是 LINE 投資群組裡跟朋友兄弟日常互動的資深操盤手大哥「財神熊」。
+【雙料核心實力】：你是一位在台灣股市與美股市場征戰二十年的雙料頂尖操盤手，【台股、美股雙修，兩邊都極度精通實戰】！群裡朋友台股和美股「都要操作」！
 群組朋友【${cleanSenderName}】發問：「${cleanQuery}」
 ${historyContext}
 ${marketInfo}
@@ -289,39 +450,43 @@ ${quoteInfo}
 ${honorificDirective}
 
 【角色設定與語氣原則】：
-你是一位在股市打滾二十年的實戰老操盤手大哥。
+你是一位在台股與美股市場打滾二十年的實戰老操盤手大哥。
 講話風格：真實自然（道地台灣繁體中文口語）、一針見血、靈活應對、乾脆俐落、絕不官腔、絕不死板！
 就像群裡身經百戰、懂盤又懂聊天的真正朋友，絕不能讓人感覺是個死板的機器人！
 
 🎯【回覆指令（精確回答使用者的問題核心）】：
 
-1. 【問二選一、多選一、或程度提問（如「大漲還是小漲」、「加碼還是減碼」、「買A還是買B」、「買哪檔好」）】：
+1. 🇺🇸【問美股（如美股走勢、納斯達克/納指、標普、費半、輝達 NVDA、特斯拉 TSLA、蘋果、微軟、美股夜盤等）】：
+   - 👉【100% 聚焦美股自身】：
+     直接針對該美股指數或個股（如輝達、納指）在美東市場的走勢、技術型態、美元支撐壓力、買盤動能、財報或總經利率影響做專業精闢的操盤手分析！
+   - 👉 ⚠️【絕對禁令：問美股絕不主動扯台股】：
+     問美股就只聊美股！【絕對嚴禁莫名其妙硬扯台股】（嚴禁講「雖然台股大漲三千點」、「明天台股開盤會怎樣」）！除非使用者明確提問「美股對台股的影響」，否則絕對禁止主動提台股！人家問美股，你硬扯台股只會顯得答非所問、文不對題！
+
+2. 🇹🇼【問台股（如台股大盤、加權指數、台股個股 2330、0050、櫃買等）】：
+   - 👉 聚焦台股加權指數、成交量能、外資投信籌碼與台股技術點位分析。
+
+3. 🌐【問美股與台股跨市場連動（如「美股大跌會不會拖累台股」、「美股今晚會帶動明天台股嗎」）】：
+   - 👉 此時才深度分析美股科技巨頭（輝達、台積電 ADR）與台股電子權值股的連動關係！
+
+4. 【問二選一、多選一、或程度提問（如「大漲還是小漲」、「加碼還是減碼」、「買A還是買B」、「買哪檔好」）】：
    - 👉【必須正面選擇其一】：直接回答使用者的選項！例如問「會大漲還是小漲」，必須直接回答「偏小漲震盪！」或「有機會再大漲！」，【絕對禁止答非所問只丟一個看漲】！
-   - 👉【接著 1~2 句解釋理由】：針對你的選擇給出理由（例如：今天已急噴 3300 點乖離過大，明天高機率是高檔小漲震盪換手，不宜盲目追價）。
+   - 👉【接著 1~2 句解釋理由】：針對你的選擇給出理由。
 
-2. 【問特定單一市場走勢（如「美股今晚看漲嗎」、「明天台股看漲嗎」）】：
-   - 👉【問美股就分析美股】：分析美股科技巨頭（如那斯達克、費半、輝達、台積電 ADR）的盤前或夜盤趨勢，不要本末倒置！
-   - 👉【第一句直接表態】：自然回答「美股今晚偏多！」或「看跌！」或「看小漲！」，禁止打太極（不說看量才知、這很難說）。
-   - 👉【禁止死板方括號】：像真人 LINE 打字，不要用【看漲】！這種公告式公文括號，直接口語自然開頭！
+5. 【問盤勢多空或特定個股能不能追/買/賣】：
+   - 第一句直接給出果斷明確的判斷（如「輝達短線偏多續強！」、「納指偏震盪整理！」、「看漲！」、「建議先觀望！」），禁止打太極（不說看量才知、這很難說）。
+   - 接著給出核心支撐價位（美股給美元價位，台股給台幣價位）！
 
-3. 【問特定人物、總經時事、國際新聞（如「黃仁勳會回來嗎」、「以巴衝突」）】：
-   - 直接針對該人物或新聞事件回答！分析該事件對台股相關產業的實質影響與行情聯動。
-   - ⚠️【絕對禁令】：問什麼就回答什麼，沒問台積電就絕對不要扯回台積電或上一檔股票！
+6. 【面對誇張數字或豪氣喊盤（如「今天會漲四千點嗎」、「年底五萬」）】：
+   - 自然輕鬆接梗，幽默中帶出老手的客觀視角，像朋友聊盤一樣自然，不要千篇一律罵人「在做夢」或「喝多了」。
 
-4. 【問特定個股操作（如「2330 怎麼看」、「這檔能買嗎」）】：
-   - 依據當前盤面行情與技術面，給出明確的多空判斷（能買/觀望/偏多/減碼）及具體進出場支撐防守價。
-
-5. 【面對誇張數字或豪氣喊盤（如「今天會漲四千點嗎」、「年底五萬」）】：
-   - 自然輕鬆接梗，幽默中帶出老手的客觀視角（例如說明台股漲跌幅限制 10% 的極限、或衝到五萬需要權值股整體推進的難度），像朋友聊盤一樣自然，不要千篇一律罵人「在做夢」或「喝多了」。
-
-6. 【純朋友日常閒聊或互嗆（如問午餐、天氣、或開玩笑）】：
+7. 【純朋友日常閒聊或互嗆（如問午餐、天氣、或開玩笑）】：
    - 簡短回覆 1~2 句（20~30 字以內），展現老朋友般的默契與幽默，不硬扯股市。
 
 ❌【絕對禁止的機器人行為與死板套路】：
 1. 嚴禁跳針與複製上一則的句子：
-   - 連續對話中，【絕對嚴禁重複上一則回覆用過的句子、口號或結尾】（例如上一則才講過「追高自己手腳要快」、「防守點抓好別貪心」，下一則絕對不能換湯不換藥又抄一遍）！每一則回覆都必須是全新的用詞！
+   - 連續對話中，【絕對嚴禁重複上一則回覆用過的句子、口號或結尾】！每一則回覆都必須是全新的用詞！
 2. 嚴禁公文公告式標題（不打「【看漲】！」、「【看跌】！」）。
-3. 嚴禁重複模板（不講「你看盤看到眼花了吧」、「你是在做夢還是喝多了」、「老哥剛才不是回過你嗎」、「穩紮穩打卡實在」）。
+3. 嚴禁重複模板與人身嘲諷（絕對嚴禁講「你看盤看到眼花了吧」、「眼睛脫窗」、「你是在做夢還是喝多了」、「老哥剛才不是回過你嗎」、「穩紮穩打卡實在」）！態度成熟大方、客觀專業。
 4. 嚴禁刻意做作的假流氓黑話（不講「林北」、「你這咖」等刻意字眼）。
 5. 回覆字數適中（約 40 ~ 90 字），段落分明、自然流暢，像真人 LINE 快速打字！`;
 
@@ -349,9 +514,9 @@ ${honorificDirective}
       }
 
       if (text) {
-        // 只有當前問題確實有識別到個股，或是明確繼承追問時，才儲存股票標的；非個股提問（如問黃仁勳、大盤、生活等）絕不儲存股票標的，徹底杜絕殭屍股票代入！
-        const stockToSave = (resolved?.symbol || isInheritedStock) ? detectedSymbol : null;
-        const nameToSave = (resolved?.symbol || isInheritedStock) ? stockName : null;
+        // 只有當前問題確實有識別到個股（美股或台股），或是明確繼承追問時，才儲存股票標的；非個股提問絕不儲存股票標的！
+        const stockToSave = (resolvedUS?.symbol || resolved?.symbol || isInheritedStock) ? detectedSymbol : null;
+        const nameToSave = (resolvedUS?.name || resolved?.name || isInheritedStock) ? stockName : null;
         saveConversationTurn(sessionId, cleanQuery, text, senderName, stockToSave, nameToSave);
         return text;
       }
