@@ -1,42 +1,55 @@
 import { logger } from '../../utils/logger.js';
 import { getQuote } from '../fugle/marketData.js';
-import { fetchLatestStockNews } from '../news/cnyesNews.js';
+import { fetchTopHeadlines } from '../news/cnyesNews.js';
 import { sendHTML } from '../notify/telegram.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { isTradingDay, getMarketHolidayAlerts } from '../../utils/helpers.js';
 import { LINE_CHANNEL_ID } from '../../config/index.js';
 
-function generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent, price56, change56, price6208, change6208 }) {
+function generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent, price56, change56, price6208, change6208, topNewsTitle }) {
   const cPct = parseFloat(tseChangePercent) || 0;
 
   let trend = '【高檔震盪】';
+  let reason = topNewsTitle ? `市場焦點在於「${topNewsTitle}」，今日多空呈現拉鋸消化。` : '盤面缺乏重大單一事件衝擊，整體處於區間消化整理。';
   let etfStatus = `0056 (${change56}%) 與 006208 (${change6208}%) 處於區間震盪整理。`;
   let canChase = '【續抱不動，空手不建議追高】';
   let action = '【建議持股續抱，暫不建議進場追買】— 原因：大盤量縮整理方向未明，手上有部位續抱防守即可，空手者切勿心急追高。';
 
   if (cPct <= -2.0) {
     trend = '【空方全面殺盤】';
+    reason = topNewsTitle
+      ? `受「${topNewsTitle}」等重大利空風暴席捲，引爆市場恐慌與外資主力集中倒貨！`
+      : '外圍重大突發利空重擊市場信心，引發權值股與外資主力集體恐慌性倒貨！';
     etfStatus = `0056 抗跌 (${change56}%)，006208 隨權值重挫回檔 (${change6208}%)。`;
     canChase = '【明確不可追，建議減碼】';
-    action = '【強烈不建議進場，建議逢反彈減碼出清】— 原因：大盤出現恐慌破線殺盤，若手上持股已跌破短期均線，建議先減碼 1/3 收回現金避險！';
+    action = '【強烈不建議進場，建議逢反彈減碼出清】— 原因：市場受重大利空籠罩引發多殺多，持股若轉弱先減碼 1/3 收回現金避險！';
   } else if (cPct <= -1.0) {
     trend = '【空方壓制】';
+    reason = topNewsTitle
+      ? `受到「${topNewsTitle}」等負面消息壓制，多方買盤退縮，權值股承壓回檔。`
+      : '市場觀望氣氛濃厚且外圍利空壓頂，多方買盤縮手引發回檔修正。';
     etfStatus = `0056 高股息相對抗跌 (${change56}%)，006208 市值型隨大盤回檔整理 (${change6208}%)。`;
     canChase = '【不建議進場接刀】';
-    action = '【明確不建議進場，建議保留現金等待築底】— 原因：大盤今日回檔跌破短期均線，空方賣壓尚未完全消化，空手者切勿盲目接刀。';
+    action = '【明確不建議進場，建議保留現金等待築底】— 原因：大盤利空賣壓尚未完全消化，空手者切勿盲目接刀。';
   } else if (cPct >= 1.0) {
     trend = '【多方攻擊】';
+    reason = topNewsTitle
+      ? `受「${topNewsTitle}」等重磅利多帶動，法人買盤大舉湧入權值股點火！`
+      : '外圍利多激勵與國際熱錢回流，大型權值股同步發動攻勢帶領大盤衝高！';
     etfStatus = `006208 權值動能強勁 (${change6208}%)，0056 穩定向上 (${change56}%)，多頭架構完好。`;
     canChase = '【強烈建議逢低分批買進】';
-    action = '【明確建議加碼買進】— 原因：加權指數帶量站穩均線之上，多方買盤積極，回測均線不破建議分批加碼核心持股！';
+    action = '【明確建議加碼買進】— 原因：多方攻擊動能強勁，若手中部位拉回有守，建議分批加碼核心持股！';
   } else if (cPct > 0) {
     trend = '【震盪偏多】';
+    reason = topNewsTitle
+      ? `受「${topNewsTitle}」消息支撐，買盤逐步回流，盤面維持偏多輪動。`
+      : '多方買盤穩步護盤，類股維持良性輪動。';
     etfStatus = `0056 與 006208 表現穩健，盤面呈現良性輪動。`;
     canChase = '【建議逢低分批布局】';
-    action = '【建議逢低分批加碼】— 原因：大盤底部墊高且守穩支撐，建議趁盤中壓回時分批布局優質標的。';
+    action = '【建議逢低分批加碼】— 原因：盤面結構穩健，建議趁盤中壓回時分批布局優質標的。';
   }
 
-  return `• 明天到底會漲還是跌：${trend}\n• 0056 / 006208 現況：${etfStatus}\n• 能不能追：${canChase}\n• 明日應對：${action}`;
+  return `• 明天到底會漲還是跌：${trend}\n• 今天漲跌核心原因：${reason}\n• 0056 / 006208 現況：${etfStatus}\n• 能不能追：${canChase}\n• 明日應對：${action}`;
 }
 
 export const runPostMarketScan = async () => {
@@ -62,7 +75,7 @@ export const runPostMarketScan = async () => {
       getQuote('IX0001'),
       getQuote('2330'),
       getQuote('2317'),
-      fetchLatestStockNews(10)
+      fetchTopHeadlines(12)
     ]);
 
     const price56 = q56?.closePrice || q56?.lastPrice || 0;
@@ -96,16 +109,11 @@ export const runPostMarketScan = async () => {
       holidaySection = '\n' + holidayAlerts.join('\n') + '\n';
     }
 
-    let aiVerdict = generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent: tseChange, price56, change56, price6208, change6208 });
+    let aiVerdict = generatePostMarketRuleBased({ tseClose, tseChange, tseChangePercent: tseChange, price56, change56, price6208, change6208, topNewsTitle: news?.[0]?.title });
 
     if (process.env.GEMINI_API_KEY) {
       try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-3.1-flash-lite',
-          generationConfig: { temperature: 0.0 }
-        });
-
         const prompt = `今日台股盤後數據已正式結算。
 請為老闆產出最簡單、直白、3秒看懂的「14:05 大盤明日預測」，不需要任何專業術語，不要下半段分析，嚴禁任何自稱廢話。
 
@@ -116,22 +124,39 @@ export const runPostMarketScan = async () => {
 - 台積電 (2330)：收盤價 NT$ ${tsmcPrice} (${tsmcSign}${tsmcChange}%)
 - 鴻海 (2317)：收盤價 NT$ ${honhaiPrice} (${honhaiSign}${honhaiChange}%)
 
-【今日重大財經要聞】：
-${newsText}
+【今日重大財經要聞與焦點事件】：
+${newsText || '暫無重大新聞'}
 
-【必須嚴格遵守的輸出格式】（直接輸出以下四行，嚴禁多餘廢話）：
+【必須嚴格遵守的輸出格式】（直接輸出以下五行，嚴禁多餘廢話）：
 • 明天到底會漲還是跌：【漲】（或【跌】/【震盪偏多】/【震盪偏空】）
+• 今天漲跌核心原因：【絕對嚴格禁止講純技術面空話（如均線破線、回測支撐、獲利回吐等）！】必須結合今日重大財經要聞與國際局勢，用 1~2 句大白話說清楚今天大盤暴漲或暴跌的真正「消息/事件元兇」（例如：川普關稅震撼彈重擊供應鏈、外資量化大逃殺倒貨、Fed利率政策變數等），直球講出真因！
 • 0056 / 006208 現況：用一句大白話總結這兩檔今天表現與強弱
 • 能不能追：【不可追，等拉回】（或【可以逢低分批買】/【續抱不動，切勿追高】/【反彈減碼】）
 • 明日應對：明確建議【加倉】、【賣一點】或【觀望】（三擇一），並緊接一句大白話說明具體原因。
 
 【絕對嚴格禁止】：
+- 絕對禁止在「今天漲跌核心原因」中只講技術面名詞（如破均線、月線有撐、量價背離、指標過熱、乖離率大、正常震盪洗盤）！必須直指真實新聞事件與政經元兇！
 - 嚴禁提及「老手」、「投資盈虧自負」、「請謹慎評估」、「守護本金」、「停損停利」、「勝率」。
 - 嚴禁分「上半段／下半段」，全篇直接給老闆秒懂。`;
 
-        const res = await model.generateContent(prompt);
-        const text = res.response.text().trim();
-        if (text) aiVerdict = text;
+        const candidateModels = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite'];
+        let text = null;
+        for (const modelName of candidateModels) {
+          try {
+            const model = genAI.getGenerativeModel({
+              model: modelName,
+              generationConfig: { temperature: 0.1 }
+            });
+            const res = await model.generateContent(prompt);
+            text = res.response.text().trim();
+            if (text) {
+              aiVerdict = text;
+              break;
+            }
+          } catch (modelErr) {
+            logger.warn('PostMarket', `模型 ${modelName} 失敗: ${modelErr.message}`);
+          }
+        }
       } catch (geminiError) {
         logger.warn('PostMarket', 'Gemini API 額度不足或暫時無法連線，啟用智慧型規則引擎產出分析: ' + geminiError.message);
       }
