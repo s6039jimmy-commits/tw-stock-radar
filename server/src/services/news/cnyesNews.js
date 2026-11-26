@@ -75,7 +75,13 @@ export const fetchTopHeadlines = async (limit = 8) => {
       });
     }
 
+    const nowSec = Math.floor(Date.now() / 1000);
+    const RECENT_12H_SEC = 12 * 3600;
     unique.sort((a, b) => {
+      const aRecent = (nowSec - (a.publishedAt || 0)) <= RECENT_12H_SEC ? 1 : 0;
+      const bRecent = (nowSec - (b.publishedAt || 0)) <= RECENT_12H_SEC ? 1 : 0;
+      if (aRecent !== bRecent) return bRecent - aRecent;
+
       const aPri = MARKET_CATALYST_REGEX.test(a.title) ? 1 : 0;
       const bPri = MARKET_CATALYST_REGEX.test(b.title) ? 1 : 0;
       if (aPri !== bPri) return bPri - aPri;

@@ -432,16 +432,33 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
     } catch (e) {}
   }
 
-  // 取得當前市場即時重大焦點新聞（僅作背景參考，絕不可在無關提問中硬扯）
+  // 取得當前市場即時重大焦點新聞（嚴格把關：只有問「為什麼漲跌/盤勢原因/新聞」或該檔個股相關新聞時才帶入，絕不讓昨天的舊聞污染其他提問！）
   let newsContext = '';
-  try {
-    const headlines = await fetchTopHeadlines(10);
-    if (headlines && headlines.length > 0) {
-      const newsLines = headlines.map(h => `- ${h.title}`).join('\n');
-      newsContext = `\n【今日市場即時新聞參考（僅供背景參考！只有當使用者在問「為什麼大漲大跌/發生什麼事/盤勢原因」時才需要引用；若使用者在問專有名詞、特定報告或某檔個股，絕對不要硬扯無關的新聞頭條！）】：\n${newsLines}\n`;
+  const isAskingMarketReasonOrNews = /(為什麼|為何|怎麼[會漲跌殺崩噴]|發生什麼|什麼事|原因|消息|新聞|利空|利多|事件|盤勢|大盤怎麼|美股怎麼|台股怎麼|川普|關稅|聯準會|fed|降息|升息)/i.test(cleanQuery);
+
+  if (isAskingMarketReasonOrNews || (detectedSymbol && detectedSymbol !== 'IX0001')) {
+    try {
+      const headlines = await fetchTopHeadlines(10);
+      if (headlines && headlines.length > 0) {
+        let relevantHeadlines = headlines;
+        // 如果是問特定個股（且不是問全市場大跌原因），只保留與該個股相關的新聞，絕不硬塞川普關稅之類的舊大盤頭條！
+        if (detectedSymbol && detectedSymbol !== 'IX0001' && !isAskingMarketReasonOrNews) {
+          const shortName = (stockName || '').replace(/\s*\(.*?\)/g, '').trim();
+          const symBase = detectedSymbol.replace(/^\^/, '');
+          relevantHeadlines = headlines.filter(h =>
+            (shortName && h.title.includes(shortName)) ||
+            (symBase && h.title.toUpperCase().includes(symBase.toUpperCase()))
+          );
+        }
+
+        if (relevantHeadlines.length > 0) {
+          const newsLines = relevantHeadlines.slice(0, 6).map(h => `- ${h.title}`).join('\n');
+          newsContext = `\n【今日即時新聞參考（僅供參考，若上一則已提過或與問題無關請勿重複）】：\n${newsLines}\n`;
+        }
+      }
+    } catch (e) {
+      // 忽略新聞獲取失敗
     }
-  } catch (e) {
-    // 忽略新聞獲取失敗
   }
 
   // 4. AI 智慧分析生成回答（完全廢除人工死規則，由 Gemini 幾千億參數大腦自行理解語意與意圖！）
