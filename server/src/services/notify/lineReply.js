@@ -2,7 +2,7 @@ import axios from 'axios';
 import YahooFinance from 'yahoo-finance2';
 import { logger } from '../../utils/logger.js';
 import { getQuote } from '../fugle/marketData.js';
-import { fetchTopHeadlines } from '../news/cnyesNews.js';
+import { fetchTopHeadlines, fetchNewsByTicker } from '../news/cnyesNews.js';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
@@ -358,7 +358,10 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
           const changePct = parseFloat(uq.regularMarketChangePercent || 0);
           const sign = change >= 0 ? '+' : '';
           const unit = detectedSymbol.startsWith('^') ? '點' : '美元';
-          quoteInfo = `\n【${detectedSymbol} ${stockName} 美股即時行情】：現報 ${price} ${unit} (${sign}${change.toFixed(2)} / ${sign}${changePct.toFixed(2)}%)，今日區間 ${uq.regularMarketDayLow || price} ~ ${uq.regularMarketDayHigh || price}`;
+          const ma50 = uq.fiftyDayAverage ? `，50日線 ${uq.fiftyDayAverage.toFixed(2)}` : '';
+          const ma200 = uq.twoHundredDayAverage ? `，200日線 ${uq.twoHundredDayAverage.toFixed(2)}` : '';
+          const hi52 = uq.fiftyTwoWeekHigh ? `，52週高 ${uq.fiftyTwoWeekHigh.toFixed(2)}` : '';
+          quoteInfo = `\n【${detectedSymbol} ${stockName} 美股即時數據】：現報 ${price} ${unit} (${sign}${change.toFixed(2)} / ${sign}${changePct.toFixed(2)}%)，今日高低 ${uq.regularMarketDayLow || price} ~ ${uq.regularMarketDayHigh || price}${ma50}${ma200}${hi52}`;
         }
       } catch (e) {
         logger.warn('LINEReply', `查詢美股報價 ${detectedSymbol} 失敗: ` + e.message);
@@ -372,7 +375,10 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
           const changePct = parseFloat(currentQuote.changePercent || 0);
           const sign = change >= 0 ? '+' : '';
           const name = stockName || currentQuote.name || detectedSymbol;
-          quoteInfo = `\n【${detectedSymbol} ${name} 台股即時行情】：成交價 NT$ ${price} (${sign}${change} / ${sign}${changePct}%)`;
+          const high = currentQuote.highPrice || price;
+          const low = currentQuote.lowPrice || price;
+          const vol = currentQuote.total?.tradeVolume ? `，成交量 ${Math.round(currentQuote.total.tradeVolume / 1000)}k 張` : '';
+          quoteInfo = `\n【${detectedSymbol} ${name} 台股即時數據】：成交價 NT$ ${price} (${sign}${change} / ${sign}${changePct}%)，今日高低 ${low} ~ ${high}${vol}`;
         }
       } catch (e) {
         logger.warn('LINEReply', `查詢台股報價 ${detectedSymbol} 失敗: ` + e.message);
@@ -432,29 +438,28 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
     } catch (e) {}
   }
 
-  // 取得當前市場即時重大焦點新聞（嚴格把關：只有問「為什麼漲跌/盤勢原因/新聞」或該檔個股相關新聞時才帶入，絕不讓昨天的舊聞污染其他提問！）
+  // 取得當前市場即時重大焦點新聞（嚴格把關：問個股就精準查該個股新聞，問大盤原因才看頭條，問名詞則不帶入無關新聞！）
   let newsContext = '';
   const isAskingMarketReasonOrNews = /(為什麼|為何|怎麼[會漲跌殺崩噴]|發生什麼|什麼事|原因|消息|新聞|利空|利多|事件|盤勢|大盤怎麼|美股怎麼|台股怎麼|川普|關稅|聯準會|fed|降息|升息)/i.test(cleanQuery);
 
-  if (isAskingMarketReasonOrNews || (detectedSymbol && detectedSymbol !== 'IX0001')) {
+  if (detectedSymbol && detectedSymbol !== 'IX0001' && !isAskingMarketReasonOrNews) {
+    try {
+      const shortName = (stockName || '').replace(/\s*\(.*?\)/g, '').trim();
+      const symBase = detectedSymbol.replace(/^\^/, '');
+      const tickerNews = await fetchNewsByTicker(shortName || symBase, 4);
+      if (tickerNews && tickerNews.length > 0) {
+        const newsLines = tickerNews.map(h => `- ${h.title}`).join('\n');
+        newsContext = `\n【${shortName || symBase} 最新即時個股新聞（查證資料用）】：\n${newsLines}\n`;
+      }
+    } catch (e) {
+      // 忽略個股新聞獲取失敗
+    }
+  } else if (isAskingMarketReasonOrNews) {
     try {
       const headlines = await fetchTopHeadlines(10);
       if (headlines && headlines.length > 0) {
-        let relevantHeadlines = headlines;
-        // 如果是問特定個股（且不是問全市場大跌原因），只保留與該個股相關的新聞，絕不硬塞川普關稅之類的舊大盤頭條！
-        if (detectedSymbol && detectedSymbol !== 'IX0001' && !isAskingMarketReasonOrNews) {
-          const shortName = (stockName || '').replace(/\s*\(.*?\)/g, '').trim();
-          const symBase = detectedSymbol.replace(/^\^/, '');
-          relevantHeadlines = headlines.filter(h =>
-            (shortName && h.title.includes(shortName)) ||
-            (symBase && h.title.toUpperCase().includes(symBase.toUpperCase()))
-          );
-        }
-
-        if (relevantHeadlines.length > 0) {
-          const newsLines = relevantHeadlines.slice(0, 6).map(h => `- ${h.title}`).join('\n');
-          newsContext = `\n【今日即時新聞參考（僅供參考，若上一則已提過或與問題無關請勿重複）】：\n${newsLines}\n`;
-        }
+        const newsLines = headlines.slice(0, 6).map(h => `- ${h.title}`).join('\n');
+        newsContext = `\n【今日即時新聞參考（僅供參考，若上一則已提過或與問題無關請勿重複）】：\n${newsLines}\n`;
       }
     } catch (e) {
       // 忽略新聞獲取失敗
@@ -516,11 +521,13 @@ ${honorificDirective}
    - 👉 此時才深度分析美股科技巨頭（輝達、台積電 ADR）與台股電子權值股的連動關係！
 
 6. 【問二選一、多選一、或程度提問（如「大漲還是小漲」、「加碼還是減碼」、「買A還是買B」、「買哪檔好」）】：
-   - 👉【必須正面選擇其一】：直接回答使用者的選項！例如問「會大漲還是小漲」，必須直接回答「偏小漲震盪！」或「有機會再大漲！」，再給出 1~2 句理由。
+   - 👉【必須主觀選邊站，嚴禁兩邊討好】：直接回答你最看好哪一個！例如問「買A還是買B」，直接講「選A！」，再根據上面的即時數據與新聞給出 1~2 句硬派理由。
 
-7. 【問盤勢多空或特定個股能不能追/買/賣】：
-   - 第一句直接給出果斷明確的判斷，禁止打太極（不說看量才知、這很難說）。
-   - 接著給出核心支撐價位（美股給美元價位，台股給台幣價位）！
+7. 🎯【問盤勢多空、後市怎麼看、或特定個股能不能追/買/賣（最高要求：主觀果斷、有憑有據、嚴禁保守模稜兩可！）】：
+   - 👉 **除了解釋名詞以外，只要是問你看法、漲跌或操作，一定要給出你強烈主觀、敢押注的明確答案！**
+   - 👉 第一句直接下定調：「我看多，這波會繼續彈，可以買！」或「我看空，這檔已經走弱，反彈直接賣！」（二選一表態，絕不當牆頭草！）。
+   - 👉 必須結合上方查到的【即時數據（現價、50日線/200日線、今日高低點）】與【即時新聞】作為依據，給出具體進場或防守點位（美股給美元，台股給台幣）。
+   - 👉 ⚠️【嚴禁保守與騎牆廢話】：絕對禁止講「建議先觀望」、「先看戲」、「等訊號出現再說」、「看量能才知道」、「有撐才看多」、「保守看待」、「可能漲也可能跌」、「見仁見智」！
 
 8. 【純朋友日常閒聊或誇張喊盤（如問午餐、天氣、開玩笑、「年底五萬」）】：
    - 簡短回覆 1~2 句（20~35 字以內），展現老朋友的幽默與默契，不硬扯股市操作建議。
