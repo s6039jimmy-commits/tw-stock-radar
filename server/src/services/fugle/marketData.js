@@ -59,6 +59,9 @@ export const getQuote = async (symbol, retries = 3) => {
       lowPrice: data.lowPrice || data.low || fallbackPrice,
       change: data.change || 0,
       changePercent: data.changePercent || 0,
+      previousClose: data.previousClose || 0,
+      lastTrial: data.lastTrial || null,
+      isTrial: Boolean(data.isTrial),
       total: data.total || {}
     };
   } catch (error) {
