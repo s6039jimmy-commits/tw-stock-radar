@@ -87,7 +87,13 @@ export const runPostMarketScan = async () => {
     const sign6208 = change6208 >= 0 ? '+' : '';
 
     const tseClose = tseQuote?.closePrice || tseQuote?.lastPrice || 0;
-    const tseChange = parseFloat(tseQuote?.changePercent || tseQuote?.change || 0);
+    const tsePointsChange = parseFloat(
+      tseQuote?.change !== undefined && tseQuote?.change !== null
+        ? tseQuote.change
+        : (tseClose && tseQuote?.previousClose ? tseClose - tseQuote.previousClose : 0)
+    );
+    const tsePointsStr = `${tsePointsChange >= 0 ? '+' : ''}${Number.isInteger(tsePointsChange) ? tsePointsChange : tsePointsChange.toFixed(2)}`;
+    const tseChange = parseFloat(tseQuote?.changePercent || 0);
     const tseSign = tseChange >= 0 ? '+' : '';
     const rawVal = tseQuote?.total?.tradeValue || 0;
     const tseValBillion = Math.round(rawVal / 100000000);
@@ -118,7 +124,7 @@ export const runPostMarketScan = async () => {
 請為老闆產出最簡單、直白、3秒看懂的「14:05 大盤明日預測」，不需要任何專業術語，不要下半段分析，嚴禁任何自稱廢話。
 
 【今日收盤真實數據】：
-- 加權指數大盤：收盤 ${tseClose} 點 (${tseSign}${tseChange}%)，成交量約 ${tseValBillion} 億元
+- 加權指數大盤：收盤 ${tseClose} 點 (${tsePointsStr} 點 / ${tseSign}${tseChange}%)，成交量約 ${tseValBillion} 億元
 - 0056 (元大高股息)：收盤價 NT$ ${price56} (${sign56}${change56}%)
 - 006208 (富邦台50)：收盤價 NT$ ${price6208} (${sign6208}${change6208}%)
 - 台積電 (2330)：收盤價 NT$ ${tsmcPrice} (${tsmcSign}${tsmcChange}%)
@@ -166,7 +172,7 @@ ${newsText || '暫無重大新聞'}
     const html = `🎯 <b>【14:05 大盤明日預測】— ${today}</b>
 
 <b>📌 今日收盤概況：</b>
-• <b>加權指數：</b><code>${tseClose} 點 (${tseSign}${tseChange}%) | 成交約 ${tseValBillion} 億</code>
+• <b>加權指數：</b><code>${tseClose} 點 (${tsePointsStr} 點 / ${tseSign}${tseChange}%) | 成交約 ${tseValBillion} 億</code>
 • <b>0056 元大高股息：</b><code>NT$ ${price56} (${sign56}${change56}%)</code>
 • <b>006208 富邦台50：</b><code>NT$ ${price6208} (${sign6208}${change6208}%)</code>
 • <b>台積電：</b><code>NT$ ${tsmcPrice} (${tsmcSign}${tsmcChange}%)</code>
