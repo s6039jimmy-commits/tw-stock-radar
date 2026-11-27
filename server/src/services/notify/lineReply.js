@@ -386,6 +386,19 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
     }
   }
 
+  // 計算台灣當地時間與台股開盤狀態（防止 08:40 盤前把昨收當成盤中在動）
+  const twNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+  const twHH = twNow.getHours();
+  const twMM = twNow.getMinutes();
+  const twTimeStr = `${String(twHH).padStart(2, '0')}:${String(twMM).padStart(2, '0')}`;
+  const isTwPreMarket = twHH < 9;
+  const isTwPostMarket = twHH > 13 || (twHH === 13 && twMM >= 30);
+  const marketStatusStr = isTwPreMarket
+    ? `現在台灣時間 ${twTimeStr}（台股尚未開盤，09:00 才開盤！下方加權指數是「昨日收盤基準」，千萬不能說今天盤中死守不動！）`
+    : isTwPostMarket
+      ? `現在台灣時間 ${twTimeStr}（台股今日已收盤）`
+      : `現在台灣時間 ${twTimeStr}（台股盤中交易時段）`;
+
   // 取得大盤數據（美股提問抓那斯達克，台股提問抓加權指數，跨市場提問抓兩者；絕對不把台股大盤強塞給美股提問！）
   let marketInfo = '';
   if (isUS && !isCross) {
@@ -400,16 +413,27 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
       }
     } catch (e) {}
   } else if (!isUS) {
-    // 純台股提問：台股加權指數
+    // 純台股提問：台股加權指數（盤前加抓小那斯達克期貨 NQ=F 作為今晨風向）
     try {
-      const marketQuote = await getQuote('IX0001');
+      const [marketQuote, nqQuote] = await Promise.all([
+        getQuote('IX0001').catch(() => null),
+        isTwPreMarket ? yahooFinance.quote('NQ=F').catch(() => null) : Promise.resolve(null)
+      ]);
       if (marketQuote) {
-        const mPrice = marketQuote.closePrice || marketQuote.lastPrice || 0;
+        const livePrice = marketQuote.closePrice || marketQuote.lastPrice || marketQuote.previousClose || 0;
+        const prevPrice = marketQuote.previousClose || marketQuote.closePrice || marketQuote.lastPrice || 0;
         const mChange = parseFloat(marketQuote.change || 0);
         const mChangePct = parseFloat(marketQuote.changePercent || 0);
         const mSign = mChange >= 0 ? '+' : '';
-        const mHigh = marketQuote.highPrice || mPrice;
-        marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${mPrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
+        const mHigh = marketQuote.highPrice || livePrice;
+        if (isTwPreMarket) {
+          const nqPct = nqQuote ? parseFloat(nqQuote.regularMarketChangePercent || 0).toFixed(2) : null;
+          const nqSign = nqPct !== null && parseFloat(nqPct) >= 0 ? '+' : '';
+          const nqStr = nqPct !== null ? `；今晨亞洲盤小那期貨 (NQ=F) 現報 ${nqQuote.regularMarketPrice} (${nqSign}${nqPct}%)` : '';
+          marketInfo = `\n【台股昨收基準（注意：現在尚未開盤！）】：加權指數昨收 ${prevPrice} 點${nqStr}。`;
+        } else {
+          marketInfo = `\n【當前台股大盤真實行情】：加權指數現報 ${livePrice} 點 (${mSign}${mChange} / ${mSign}${mChangePct}%)，今日高點 ${mHigh} 點。`;
+        }
       }
     } catch (e) {}
   } else {
@@ -487,6 +511,7 @@ const _processUserQuestionRaw = async (userText, sessionId = 'default', senderNa
       const prompt = `你是 LINE 投資群組裡跟朋友兄弟日常互動的資深操盤手大哥「財神熊」。
 【雙料核心實力】：你是一位在台灣股市與美股市場征戰二十年的雙料頂尖操盤手，【台股、美股雙修，兩邊都極度精通實戰】！群裡朋友台股和美股「都要操作」！
 群組朋友【${cleanSenderName}】發問：「${cleanQuery}」
+【時間與盤面狀態】：${marketStatusStr}
 ${historyContext}
 ${antiRepeatDirective}
 ${newsContext}
@@ -524,10 +549,11 @@ ${honorificDirective}
    - 👉【必須主觀選邊站，嚴禁兩邊討好】：直接回答你最看好哪一個！例如問「買A還是買B」，直接講「選A！」，再根據上面的即時數據與新聞給出 1~2 句硬派理由。
 
 7. 🎯【問盤勢多空、後市怎麼看、或特定個股能不能追/買/賣（最高要求：主觀果斷、有憑有據、嚴禁保守模稜兩可！）】：
-   - 👉 **除了解釋名詞以外，只要是問你看法、漲跌或操作，一定要給出你強烈主觀、敢押注的明確答案！**
-   - 👉 第一句直接下定調：「我看多，這波會繼續彈，可以買！」或「我看空，這檔已經走弱，反彈直接賣！」（二選一表態，絕不當牆頭草！）。
+   - 👉 **除了解釋名詞以外，只要是問你看法、漲跌、何時進場或操作，一定要給出你強烈主觀、敢押注的明確答案！**
+   - 👉 第一句直接下定調：「我看多，今天直接買！」或「我看空，先別買，等打到 XXX 點再進！」（絕不當牆頭草！）。
+   - 👉 若使用者問「什麼時候才能買／到底何時進場」，必須給出**具體的時間點＋精準點位＋明確標的**（例如：「09:30 過後只要站穩 39,200 點就直接買台積電 (2330) 或 006208！」），**絕對禁止講「籌碼在沉澱、多空在拔河、鎖定剛站穩均線、量能持續放大的強勢權值股」這種空泛教科書廢話！**
    - 👉 必須結合上方查到的【即時數據（現價、50日線/200日線、今日高低點）】與【即時新聞】作為依據，給出具體進場或防守點位（美股給美元，台股給台幣）。
-   - 👉 ⚠️【嚴禁保守與騎牆廢話】：絕對禁止講「建議先觀望」、「先看戲」、「等訊號出現再說」、「看量能才知道」、「有撐才看多」、「保守看待」、「可能漲也可能跌」、「見仁見智」！
+   - 👉 ⚠️【嚴禁保守與騎牆廢話】：絕對禁止講「建議先觀望」、「先看戲」、「等訊號出現再說」、「看量能才知道」、「有撐才看多」、「保守看待」、「可能漲也可能跌」、「見仁見智」、「籌碼在沉澱」、「多空在拔河」、「強勢權值股」！
 
 8. 【純朋友日常閒聊或誇張喊盤（如問午餐、天氣、開玩笑、「年底五萬」）】：
    - 簡短回覆 1~2 句（20~35 字以內），展現老朋友的幽默與默契，不硬扯股市操作建議。
